@@ -206,6 +206,11 @@
     border: 2px dashed var(--line); border-radius: var(--radius);
   }
   .timeline-wrap.drag-over { background: #11151a; }
+  .drop-line {
+    height: 4px; background: var(--rtl-cyan); border-radius: 2px;
+    margin: 0 0 16px; box-shadow: 0 0 10px var(--rtl-cyan);
+  }
+  .drop-line[hidden] { display: none; }
 
   .tl-block {
     background: var(--panel-2);
@@ -653,11 +658,38 @@ document.addEventListener("keydown", e => {
 });
 
 // drop into timeline
-elTimeline.addEventListener("dragover", e => { e.preventDefault(); elTimeline.classList.add("drag-over"); });
-elTimeline.addEventListener("dragleave", e => { if (e.target === elTimeline) elTimeline.classList.remove("drag-over"); });
+const dropLine = document.createElement("div");
+dropLine.className = "drop-line";
+dropLine.hidden = true;
+
+// where would a drop at cursor Y land, and show the indicator line there
+function updateDropLine(clientY) {
+  const blocks = [...elTimeline.querySelectorAll(".tl-block")];
+  let insertAt = blocks.length;
+  for (let i = 0; i < blocks.length; i++) {
+    const r = blocks[i].getBoundingClientRect();
+    if (clientY < r.top + r.height / 2) { insertAt = i; break; }
+  }
+  if (insertAt >= blocks.length) elTimeline.appendChild(dropLine);
+  else elTimeline.insertBefore(dropLine, blocks[insertAt]);
+  dropLine.hidden = false;
+  return insertAt;
+}
+function hideDropLine() { dropLine.hidden = true; if (dropLine.parentNode) dropLine.remove(); }
+document.addEventListener("dragend", hideDropLine);
+
+elTimeline.addEventListener("dragover", e => {
+  e.preventDefault();
+  elTimeline.classList.add("drag-over");
+  updateDropLine(e.clientY);
+});
+elTimeline.addEventListener("dragleave", e => {
+  if (e.target === elTimeline) { elTimeline.classList.remove("drag-over"); hideDropLine(); }
+});
 elTimeline.addEventListener("drop", e => {
   e.preventDefault();
   elTimeline.classList.remove("drag-over");
+  hideDropLine();
 
   const newWall = e.dataTransfer.getData("new-wall");
   const moveIdx = e.dataTransfer.getData("move-idx");
