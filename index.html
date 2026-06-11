@@ -1262,7 +1262,7 @@ const TUT_STEPS = [
   },
   {
     action: "cues",
-    target: () => elTimeline.querySelector(".stepper"),
+    target: () => { const s = elTimeline.querySelectorAll(".stepper"); return s[s.length - 1]; },
     side: "left",
     title: "Cue-Anzahl einstellen",
     body: "Jede Wall hat mehrere Cues. Stell mit + / − ein, wie viele du brauchst.",
