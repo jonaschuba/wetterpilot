@@ -702,9 +702,10 @@ let lastCompanionWall = null;
 
 // translate a timeline step into Companion button presses
 async function applyTarget(step, prev) {
-  if (!window.wp || !step) return;            // browser preview → UI only
+  if (!step) return;
+  if (!window.wp) { toast("Kein Companion-Modus (App neu starten)", "err"); return; }
   const cfg = getCfg();
-  if (!cfg.ip) { setConn(false, "keine IP (Settings)"); return; }
+  if (!cfg.ip) { setConn(false, "keine IP (Settings)"); toast("Keine IP – bitte in den Settings (⚙) eintragen", "err"); return; }
 
   const wall = companionWall(step.wall);
   const wallChanged = lastCompanionWall !== wall || !prev || companionWall(prev.wall) !== wall;
