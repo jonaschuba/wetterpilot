@@ -28,9 +28,39 @@ Keine Presets – die konkreten Karten unterscheiden sich jede Sendung und macht
 
 ## Status
 
-- ✅ UI-Prototyp (`index.html`, eine Datei, kein Build nötig)
-- ⬜ Companion HTTP-Anbindung
-- ⬜ Cue-Start (0 oder 1) – muss im Companion getestet werden
+- ✅ UI (Drag-&-Drop-Timeline, NEXT/Back, Restart-Popup, Auto-Scroll)
+- ✅ Electron-Desktop-App (Windows), doppelklickbar
+- ✅ Companion HTTP-Anbindung (Seite 65) inkl. Wall-/Cue-Mapping
+- ✅ IP/Port in den Settings konfigurierbar + Verbindungstest
+- ✅ Auto-Update aus GitHub-Releases mit Benachrichtigung
+- ✅ Cue-Logik geklärt (1-basiert, Reset bei Wandwechsel)
+
+## Für Jonas: Installieren & Updaten
+
+**Repo:** https://github.com/jonaschuba/wetterpilot (privat)
+
+### Erstinstallation auf dem Regie-PC
+1. Auf GitHub unter **Releases** das neueste `WetterPilot-Setup-x.y.z.exe` herunterladen.
+2. Doppelklick → installiert sich, legt eine Desktop-Verknüpfung an. (Windows-SmartScreen ggf. „Trotzdem ausführen".)
+3. App öffnen → Zahnrad ⚙ → **IP des Companion-Rechners** eintragen, „Verbindung testen".
+
+### Update veröffentlichen (auch aus dem Urlaub, nur mit Handy/Laptop + GitHub)
+1. In `package.json` die `version` erhöhen (z. B. `1.0.1`).
+2. Commit + Tag pushen:
+   ```
+   git commit -am "..." && git tag v1.0.1 && git push && git push --tags
+   ```
+3. Die GitHub-Action baut automatisch das neue Setup und legt ein Release an.
+4. Auf dem Regie-PC: WetterPilot sucht beim Start automatisch nach Updates (oder ⚙ → „Nach Updates suchen") → lädt → **Benachrichtigung** → „Neu starten & aktualisieren".
+
+> Operator muss **nichts** an der Kommandozeile machen – nur den Update-Button drücken.
+
+### Lokal entwickeln (auf dem Mac)
+```
+npm install      # einmalig (lädt Electron)
+npm start        # App lokal starten
+```
+Die UI lässt sich auch ohne Electron testen: `index.html` im Browser öffnen (dann nur Oberfläche, keine Companion-/Update-Funktion).
 
 ## Companion-Steuerungsmodell (geklärt 2026-06-11 aus der Config)
 
