@@ -404,14 +404,14 @@
       <div class="set-section">
         <div class="set-h">Companion connection</div>
         <div class="set-row">
-          <label for="setIp">IP address</label>
-          <input id="setIp" type="text" inputmode="decimal" placeholder="z.B. 192.168.0.50" />
+          <label for="setIp">IP / Hostname</label>
+          <input id="setIp" type="text" placeholder="z.B. companion.netrtl.com" />
         </div>
         <div class="set-row">
           <label for="setPort">Port</label>
-          <input id="setPort" type="text" inputmode="numeric" placeholder="8000" />
+          <input id="setPort" type="text" inputmode="numeric" placeholder="80" />
         </div>
-        <div class="set-hint">Bei Regie-Wechsel hier einfach die IP des Companion-Rechners anpassen.</div>
+        <div class="set-hint">Dieselbe Adresse wie die Companion-Oberfläche im Browser. Steht dort kein Port, ist es Port&nbsp;80. Bei Regie-Wechsel hier anpassen.</div>
         <button class="btn set-test" id="btnTest">Verbindung testen</button>
         <span class="set-teststatus" id="testStatus"></span>
       </div>
@@ -654,8 +654,8 @@ function companionWall(w) { return w === "W12" ? "W1" : w === "W34" ? "W3" : w; 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 function getCfg() {
-  try { return JSON.parse(localStorage.getItem("wp_cfg")) || { ip: "", port: "8000" }; }
-  catch (e) { return { ip: "", port: "8000" }; }
+  try { return JSON.parse(localStorage.getItem("wp_cfg")) || { ip: "", port: "80" }; }
+  catch (e) { return { ip: "", port: "80" }; }
 }
 function setCfg(c) { localStorage.setItem("wp_cfg", JSON.stringify(c)); }
 
@@ -690,7 +690,7 @@ async function applyTarget(step, prev) {
 
   let ok = true;
   for (const bank of banks) {
-    const r = await window.wp.press({ ip: cfg.ip, port: cfg.port || "8000", page: COMPANION.page, bank });
+    const r = await window.wp.press({ ip: cfg.ip, port: cfg.port || "80", page: COMPANION.page, bank });
     ok = ok && r.ok;
     await sleep(120);
   }
@@ -712,14 +712,14 @@ const settingsEl = document.getElementById("settings");
 function openSettings() {
   const cfg = getCfg();
   document.getElementById("setIp").value = cfg.ip || "";
-  document.getElementById("setPort").value = cfg.port || "8000";
+  document.getElementById("setPort").value = cfg.port || "80";
   document.getElementById("testStatus").textContent = "";
   document.getElementById("testStatus").className = "set-teststatus";
   settingsEl.hidden = false;
 }
 function saveSettings() {
   const ip = document.getElementById("setIp").value.trim();
-  const port = document.getElementById("setPort").value.trim() || "8000";
+  const port = document.getElementById("setPort").value.trim() || "80";
   setCfg({ ip, port });
   lastCompanionWall = null;
   setConn(false, ip ? "konfiguriert (" + ip + ")" : "keine IP");
@@ -735,7 +735,7 @@ document.getElementById("btnTest").addEventListener("click", async () => {
   if (!window.wp) { st.className = "set-teststatus err"; st.textContent = "Test nur in der App möglich"; return; }
   if (!cfg.ip) { st.className = "set-teststatus err"; st.textContent = "Bitte IP eingeben"; return; }
   st.className = "set-teststatus"; st.textContent = "teste …";
-  const r = await window.wp.ping({ ip: cfg.ip, port: cfg.port || "8000" });
+  const r = await window.wp.ping({ ip: cfg.ip, port: cfg.port || "80" });
   if (r.ok) { st.className = "set-teststatus ok"; st.textContent = "✓ erreichbar"; setConn(true, "verbunden"); }
   else { st.className = "set-teststatus err"; st.textContent = "✗ nicht erreichbar (" + (r.error || "Fehler") + ")"; setConn(false, "nicht erreichbar"); }
 });
