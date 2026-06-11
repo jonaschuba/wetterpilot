@@ -766,8 +766,8 @@ function render() {
   }
 
   // keep the active block in view
-  const activeBlock = elTimeline.querySelector(".tl-block.active");
-  if (activeBlock) activeBlock.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  const activeBlockEl = elTimeline.querySelector(".tl-block.active");
+  if (activeBlockEl) activeBlockEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
 
 function changeCues(bi, delta) {
