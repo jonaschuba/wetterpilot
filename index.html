@@ -494,6 +494,11 @@ WALLS.forEach(w => {
     e.dataTransfer.setData("new-wall", w);
     e.dataTransfer.effectAllowed = "copy";
   });
+  // Klick = Wand hinten an die Timeline anhängen
+  c.addEventListener("click", () => {
+    timeline.push({ id: uid++, wall: w, cues: 1 });
+    render();
+  });
   palette.appendChild(c);
 });
 
