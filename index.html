@@ -110,7 +110,7 @@
     border-bottom: 1px solid var(--line);
     font-weight: 700;
   }
-  .panel .body { padding: 18px; overflow-y: auto; }
+  .panel .body { padding: 18px; overflow-y: auto; display: flex; flex-direction: column; }
 
   /* ---------- Wall palette ---------- */
   .palette-grid {
@@ -402,7 +402,7 @@
 
   /* ---------- tutorial start button ---------- */
   .btn-tutstart {
-    margin-top: 16px; width: 100%;
+    margin-top: auto; width: 100%; flex: 0 0 auto;
     padding: 12px 14px; border-radius: 12px;
     background: var(--panel-2); border: 1px solid var(--line);
     color: var(--text); font-family: inherit; font-weight: 700; font-size: 14px;
