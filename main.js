@@ -1,0 +1,88 @@
+const { app, BrowserWindow, ipcMain, Notification } = require("electron");
+const { autoUpdater } = require("electron-updater");
+const path = require("path");
+const http = require("http");
+
+let win = null;
+
+function createWindow() {
+  win = new BrowserWindow({
+    width: 1320,
+    height: 880,
+    minWidth: 900,
+    minHeight: 600,
+    backgroundColor: "#0d0f12",
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  win.loadFile("index.html");
+}
+
+app.whenReady().then(() => {
+  createWindow();
+  // check for updates a few seconds after launch (silent if none)
+  setTimeout(() => { try { autoUpdater.checkForUpdates(); } catch (_) {} }, 4000);
+
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
+
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
+});
+
+// ---------- Companion HTTP (from main process → no CORS) ----------
+ipcMain.handle("companion:press", async (_e, { ip, port, page, bank }) => {
+  return new Promise((resolve) => {
+    const url = `http://${ip}:${port}/press/bank/${page}/${bank}`;
+    const req = http.get(url, (res) => {
+      res.resume();
+      resolve({ ok: res.statusCode >= 200 && res.statusCode < 400, status: res.statusCode });
+    });
+    req.on("error", (err) => resolve({ ok: false, error: err.message }));
+    req.setTimeout(2500, () => { req.destroy(); resolve({ ok: false, error: "timeout" }); });
+  });
+});
+
+ipcMain.handle("companion:ping", async (_e, { ip, port }) => {
+  return new Promise((resolve) => {
+    const req = http.get(`http://${ip}:${port}/`, (res) => {
+      res.resume();
+      resolve({ ok: true, status: res.statusCode });
+    });
+    req.on("error", (err) => resolve({ ok: false, error: err.message }));
+    req.setTimeout(2500, () => { req.destroy(); resolve({ ok: false, error: "timeout" }); });
+  });
+});
+
+// ---------- Auto-update ----------
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
+
+function sendStatus(data) {
+  if (win && !win.isDestroyed()) win.webContents.send("update:status", data);
+}
+
+autoUpdater.on("checking-for-update", () => sendStatus({ state: "checking" }));
+autoUpdater.on("update-available", (i) => sendStatus({ state: "available", version: i.version }));
+autoUpdater.on("update-not-available", () => sendStatus({ state: "none" }));
+autoUpdater.on("error", (err) => sendStatus({ state: "error", message: String(err && err.message || err) }));
+autoUpdater.on("download-progress", (p) => sendStatus({ state: "downloading", percent: Math.round(p.percent) }));
+autoUpdater.on("update-downloaded", (i) => {
+  sendStatus({ state: "downloaded", version: i.version });
+  if (Notification.isSupported()) {
+    new Notification({
+      title: "WetterPilot – Update bereit",
+      body: `Version ${i.version} wurde geladen. In WetterPilot auf „Neu starten & aktualisieren“ klicken.`,
+    }).show();
+  }
+});
+
+ipcMain.handle("update:check", () => { try { autoUpdater.checkForUpdates(); } catch (e) { sendStatus({ state: "error", message: String(e) }); } });
+ipcMain.handle("update:install", () => { autoUpdater.quitAndInstall(); });
+ipcMain.handle("app:version", () => app.getVersion());

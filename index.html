@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WetterPilot</title>
+<style>
+  @font-face {
+    font-family: "RTL United";
+    src: url("assets/fonts/RTLUnitedTextBold.ttf") format("truetype");
+    font-weight: 700;
+  }
+  @font-face {
+    font-family: "RTL United";
+    src: url("assets/fonts/RTLUnitedTextRegular.ttf") format("truetype");
+    font-weight: 400;
+  }
+  @font-face {
+    font-family: "RTL United";
+    src: url("assets/fonts/RTLUnitedTextLight.ttf") format("truetype");
+    font-weight: 300;
+  }
+
+  :root {
+    /* neutrals */
+    --bg: #0d0f12;
+    --panel: #15181d;
+    --panel-2: #1c2026;
+    --panel-3: #232830;
+    --line: #2b2f37;
+    --text: #f0f2f5;
+    --muted: #8c93a0;
+    --faint: #5b626d;
+    /* RTL brand */
+    --rtl-red: #fa002e;
+    --rtl-blue: #0036f2;
+    /* roles — colour is used sparingly */
+    --live: var(--rtl-red);   /* on air / active cue / NEXT only */
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "RTL United", system-ui, -apple-system, sans-serif;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  /* ---------- Header ---------- */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 18px 30px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    flex: 0 0 auto;
+  }
+  header .logo { height: 26px; width: auto; display: block; }
+  header .title {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: .2px;
+  }
+  header .title span { color: var(--rtl-blue); }
+  header .spacer { flex: 1; }
+  .conn {
+    display: flex; align-items: center; gap: 9px;
+    font-size: 13px; color: var(--muted);
+    padding: 7px 14px; border: 1px solid var(--line);
+    border-radius: 20px; background: var(--panel-2);
+  }
+  .conn .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--live);
+  }
+
+  /* ---------- Layout ---------- */
+  main {
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: 230px 1fr;
+    gap: 20px;
+    padding: 20px;
+    overflow: hidden;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .panel h2 {
+    margin: 0;
+    padding: 16px 18px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line);
+    font-weight: 700;
+  }
+  .panel .body { padding: 18px; overflow-y: auto; }
+
+  /* ---------- Wall palette ---------- */
+  .palette-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .wall-chip {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 8px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 20px;
+    cursor: grab;
+    user-select: none;
+    transition: transform .08s, border-color .15s, background .15s;
+  }
+  .wall-chip:hover { background: var(--panel-3); border-color: var(--faint); transform: translateY(-1px); }
+  .wall-chip:active { cursor: grabbing; }
+  .hint {
+    margin-top: 18px;
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* ---------- Stage ---------- */
+  .stage { display: flex; flex-direction: column; overflow: hidden; }
+
+  .now-bar {
+    display: flex; align-items: stretch; gap: 16px; flex-wrap: nowrap;
+    padding: 18px; border-bottom: 1px solid var(--line);
+    min-height: 124px;
+  }
+  .now-card {
+    flex: 1 1 180px; min-width: 0;
+    display: flex; flex-direction: column; justify-content: center;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 22px;
+  }
+  .now-card .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px; color: var(--muted); }
+  .now-card .val { font-size: 34px; font-weight: 700; margin-top: 6px; }
+  .now-card.current { border-color: var(--live); }
+  .now-card.current .val { color: var(--live); }
+
+  .btn {
+    border: 1px solid var(--line); border-radius: 12px; cursor: pointer;
+    font-family: inherit; font-weight: 700; color: var(--text);
+    background: var(--panel-2);
+    transition: filter .12s, transform .05s, background .12s;
+  }
+  .btn:hover { background: var(--panel-3); }
+  .btn:active { transform: scale(.98); }
+  .btn:disabled { opacity: .3; cursor: not-allowed; }
+
+  .btn-back {
+    flex: 0 0 100px; font-size: 16px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+
+  .btn-next {
+    flex: 2 1 260px; min-width: 0;
+    display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px;
+    padding: 14px 26px;
+    background: var(--live); border-color: var(--live); color: #fff;
+  }
+  .btn-next:hover { background: var(--live); filter: brightness(1.08); }
+  .btn-next .nx-lbl { font-size: 30px; font-weight: 700; letter-spacing: 1px; line-height: 1.05; }
+  .btn-next .nx-val { font-size: 17px; font-weight: 400; opacity: .9; }
+  .btn-next.restart {
+    background: var(--panel-2); border-color: var(--faint); color: var(--text);
+    align-items: center;
+  }
+  .btn-next.restart:hover { background: var(--panel-3); filter: none; }
+  .btn-next.restart .nx-val { color: var(--muted); }
+  /* confirm state: red filled to demand a deliberate second click */
+  .btn-next.confirm {
+    background: var(--live); border-color: var(--live); color: #fff;
+    align-items: center;
+  }
+  .btn-next.confirm:hover { filter: brightness(1.08); }
+  .btn-next.confirm .nx-val { color: rgba(255,255,255,.9); }
+
+  /* ---------- Timeline ---------- */
+  .timeline-wrap { flex: 1; overflow-y: auto; padding: 20px; }
+  .timeline-empty {
+    height: 100%; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 15px; text-align: center;
+    border: 2px dashed var(--line); border-radius: var(--radius);
+  }
+  .timeline-wrap.drag-over { background: #11151a; }
+
+  .tl-block {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+  }
+  .tl-block.active { border-color: var(--live); }
+  .tl-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+  .tl-grip { color: var(--faint); cursor: grab; font-size: 18px; }
+  .tl-order {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: #fff; color: #000;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; flex: 0 0 auto;
+  }
+  .tl-name { font-size: 22px; font-weight: 700; }
+  .tl-head .spacer { flex: 1; }
+
+  /* clean cue stepper */
+  .cue-set { display: inline-flex; align-items: center; gap: 12px; }
+  .cs-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
+  .stepper {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 10px; padding: 4px;
+  }
+  .step-btn {
+    width: 36px; height: 34px; border: none; border-radius: 7px;
+    background: transparent; cursor: pointer;
+    color: var(--text); font-size: 20px; font-weight: 400; line-height: 1;
+    transition: background .12s, color .12s;
+  }
+  .step-btn:hover { background: var(--panel-3); }
+  .step-btn:disabled { color: var(--faint); cursor: not-allowed; background: transparent; }
+  .step-val {
+    min-width: 34px; display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 700;
+  }
+  .tl-remove {
+    background: transparent; border: none; color: var(--faint);
+    cursor: pointer; font-size: 20px; padding: 6px 10px; border-radius: 8px;
+    margin-left: 4px;
+  }
+  .tl-remove:hover { color: var(--text); background: var(--panel-3); }
+
+  .cue-row { display: flex; flex-wrap: wrap; gap: 10px; }
+  .cue {
+    min-width: 64px; height: 46px; padding: 0 18px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent;
+    border: 1px solid var(--line); border-radius: 10px;
+    color: var(--muted); font-weight: 700; font-size: 15px;
+    cursor: pointer;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .cue:hover { color: var(--text); border-color: var(--faint); }
+  .cue.done { color: var(--text); background: var(--panel-3); border-color: transparent; }
+  .cue.active {
+    background: var(--live); border-color: var(--live); color: #fff;
+  }
+
+  footer {
+    flex: 0 0 auto; padding: 10px 30px; font-size: 11px; color: var(--faint);
+    border-top: 1px solid var(--line); background: var(--panel);
+  }
+
+  /* ---------- restart modal ---------- */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,.6);
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(2px);
+  }
+  .modal-overlay[hidden] { display: none; }
+  .modal {
+    width: min(420px, 90vw);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  }
+  .modal-title { font-size: 22px; font-weight: 700; }
+  .modal-text { font-size: 15px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+  .modal-actions { display: flex; gap: 12px; margin-top: 24px; }
+  .modal-actions .btn { flex: 1; padding: 14px; font-size: 16px; }
+  .modal-confirm { background: var(--live); border-color: var(--live); color: #fff; }
+  .modal-confirm:hover { background: var(--live); filter: brightness(1.08); }
+
+  /* ---------- header extras ---------- */
+  .conn .dot.ok { background: var(--rtl-cyan); }
+  .conn .dot.off { background: var(--faint); }
+  .icon-btn {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: var(--panel-2); border: 1px solid var(--line);
+    color: var(--text); font-size: 18px; cursor: pointer;
+    transition: background .12s;
+  }
+  .icon-btn:hover { background: var(--panel-3); }
+
+  /* ---------- settings ---------- */
+  .modal-wide { width: min(520px, 92vw); }
+  .set-section { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .set-section:first-of-type { margin-top: 8px; border-top: none; padding-top: 0; }
+  .set-h { font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin-bottom: 14px; }
+  .set-row { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+  .set-row label { flex: 0 0 110px; color: var(--muted); font-size: 14px; }
+  .set-row input {
+    flex: 1; padding: 11px 14px; font-family: inherit; font-size: 16px;
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--line); border-radius: 10px;
+  }
+  .set-row input:focus { outline: none; border-color: var(--rtl-cyan); }
+  .set-hint { font-size: 12.5px; color: var(--muted); margin: 4px 0 14px; line-height: 1.5; }
+  .set-test { padding: 10px 16px; font-size: 14px; }
+  .set-teststatus { margin-left: 12px; font-size: 14px; }
+  .set-teststatus.ok { color: var(--rtl-cyan); }
+  .set-teststatus.err { color: var(--live); }
+  .set-version { justify-content: space-between; }
+  .set-version span { color: var(--muted); }
+  .set-update { font-size: 14px; color: var(--muted); margin: 6px 0 14px; line-height: 1.5; }
+  .set-actions { display: flex; gap: 12px; }
+  .set-actions .btn { padding: 11px 16px; font-size: 14px; }
+  .btn-accent { background: var(--rtl-blue); border-color: var(--rtl-blue); color: #fff; }
+  .btn-accent:hover { filter: brightness(1.1); background: var(--rtl-blue); }
+
+  /* ---------- narrow / half screen ---------- */
+  @media (max-width: 880px) {
+    main { grid-template-columns: 1fr; }
+    .palette-grid { grid-template-columns: repeat(3, 1fr); }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <svg class="logo" viewBox="0 0 400 47.638775" xmlns="http://www.w3.org/2000/svg" aria-label="RTL NEWS">
+      <path fill="#FA002E" d="m 186.34183,0 h 84.71071 v 47.638774 h -84.71071 z" />
+      <path fill="#FFF" d="m 212.66743,10.948288 h 5.88235 v 20.667633 h 26.17716 v 5.074565 H 212.6657 Z" />
+      <path fill="#00ACF2" d="M 93.173502,0 H 177.88422 V 47.638774 H 93.173502 Z" />
+      <path fill="#FFF" d="m 132.5825,16.022853 h -14.88711 v -5.074565 h 35.66176 v 5.074565 h -14.88711 v 20.667633 h -5.88581 z" />
+      <path fill="#0036F2" d="M 0,0 H 84.710715 V 47.638774 H 0 Z" />
+      <path fill="#FFF" d="m 24.061033,10.948288 h 22.573184 c 6.873101,0 10.698012,3.089616 10.698012,8.272922 0,4.446285 -2.868683,7.428887 -7.756835,8.127934 l 11.06911,9.341342 H 52.152375 L 41.744339,27.677092 H 29.948564 v 9.00649 H 24.067937 V 10.948288 Z m 21.803369,11.911419 c 3.638498,0 5.402513,-1.177161 5.402513,-3.56773 0,-2.390569 -1.764015,-3.531483 -5.402513,-3.531483 H 29.946838 v 7.094035 H 45.86095 v 0.0052 z" />
+      <path fill="#FFF" fill-rule="evenodd" d="m 296.1164,36.690486 h -4.70346 V 10.955192 h 5.43703 l 12.49655,18.634355 h 0.15017 V 10.955192 h 4.66894 v 25.72839 h -5.40251 L 296.26484,18.157967 h -0.15016 v 18.534245 z m 43.03715,0 H 320.14637 V 10.955192 h 19.00373 v 4.118337 h -14.30027 v 6.322494 h 13.15935 v 4.080365 h -13.15935 v 7.094035 h 14.30199 z m 14.93372,0 h -5.62345 l -6.32249,-25.364195 v -0.371099 h 4.81566 l 4.37551,19.369649 h 0.15017 l 5.18158,-19.369649 h 5.10909 l 5.21782,19.369649 h 0.15017 l 4.37206,-19.369649 h 4.78114 v 0.371099 l -6.36392,25.364195 h -5.62517 L 359.312,17.795498 h -0.15017 z m 27.13339,-1.895195 c -1.95906,-1.529273 -3.01195,-3.681648 -3.16039,-6.448495 h 4.70347 c 0.26926,3.036109 2.55799,4.560205 6.8731,4.560205 1.86413,0 3.26222,-0.298606 4.20637,-0.90272 0.94414,-0.597211 1.41708,-1.451602 1.41708,-2.552817 0,-0.956228 -0.29861,-1.684618 -0.90272,-2.186896 -0.60412,-0.500553 -1.68462,-0.90272 -3.25187,-1.194422 l -4.41004,-0.844034 c -2.69435,-0.5368 -4.66721,-1.398095 -5.91687,-2.575256 -1.24793,-1.177161 -1.87621,-2.766846 -1.87621,-4.781138 0,-2.252485 0.90272,-4.033761 2.70126,-5.349005 1.79854,-1.308341 4.28576,-1.967689 7.43924,-1.967689 2.05744,0 3.87497,0.348661 5.44049,1.047708 1.56552,0.699047 2.79101,1.667357 3.67647,2.904929 0.88373,1.235847 1.34286,2.652928 1.39809,4.242613 h -4.70346 c -0.126,-1.296258 -0.70078,-2.288732 -1.72777,-2.975697 -1.02872,-0.688691 -2.50967,-1.028722 -4.44629,-1.028722 -3.35888,0 -5.04004,1.040804 -5.04004,3.125863 0,0.783624 0.31069,1.429164 0.93897,1.929716 0.62828,0.502278 1.62593,0.880282 2.99468,1.123654 l 4.18911,0.771541 c 2.94117,0.562689 5.0504,1.446423 6.32421,2.647749 1.2721,1.201325 1.91246,2.868682 1.91246,4.996893 0,2.45098 -0.90272,4.356531 -2.70126,5.713201 -1.80026,1.363573 -4.41867,2.03673 -7.84831,2.03673 -3.52631,0 -6.26899,-0.764637 -8.22977,-2.293911 z" />
+    </svg>
+    <div class="title">Wetter<span>Pilot</span></div>
+    <div class="spacer"></div>
+    <div class="conn" id="conn"><span class="dot" id="connDot"></span> <span id="connText">Companion: not configured</span></div>
+    <button class="icon-btn" id="btnSettings" title="Settings">⚙</button>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2>Walls</h2>
+      <div class="body">
+        <div class="palette-grid" id="palette"></div>
+      </div>
+    </section>
+
+    <section class="panel stage">
+      <div class="now-bar">
+        <div class="now-card current">
+          <div class="lbl">On Air</div>
+          <div class="val" id="nowCurrent">–</div>
+        </div>
+        <button class="btn btn-next" id="btnNext">
+          <span class="nx-lbl" id="nextLbl">NEXT ▶</span>
+          <span class="nx-val" id="nextVal">–</span>
+        </button>
+        <button class="btn btn-back" id="btnBack">◀ Back</button>
+      </div>
+
+      <div class="timeline-wrap" id="timeline">
+        <div class="timeline-empty" id="empty">Drag walls from the left to build the playback order.</div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-overlay" id="modal" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-title">Restart playback?</div>
+      <div class="modal-text">This jumps back to the very first cue and starts over.</div>
+      <div class="modal-actions">
+        <button class="btn modal-cancel" id="modalCancel">Cancel</button>
+        <button class="btn modal-confirm" id="modalConfirm">↺ Restart</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="settings" hidden>
+    <div class="modal modal-wide" role="dialog" aria-modal="true">
+      <div class="modal-title">Settings</div>
+
+      <div class="set-section">
+        <div class="set-h">Companion connection</div>
+        <div class="set-row">
+          <label for="setIp">IP address</label>
+          <input id="setIp" type="text" inputmode="decimal" placeholder="z.B. 192.168.0.50" />
+        </div>
+        <div class="set-row">
+          <label for="setPort">Port</label>
+          <input id="setPort" type="text" inputmode="numeric" placeholder="8000" />
+        </div>
+        <div class="set-hint">Bei Regie-Wechsel hier einfach die IP des Companion-Rechners anpassen.</div>
+        <button class="btn set-test" id="btnTest">Verbindung testen</button>
+        <span class="set-teststatus" id="testStatus"></span>
+      </div>
+
+      <div class="set-section">
+        <div class="set-h">Updates</div>
+        <div class="set-row set-version">
+          <span>Installierte Version</span>
+          <strong id="appVersion">–</strong>
+        </div>
+        <div class="set-update" id="updateStatus">Im Browser-Vorschaumodus (kein Update verfügbar).</div>
+        <div class="set-actions">
+          <button class="btn" id="btnCheckUpdate">Nach Updates suchen</button>
+          <button class="btn btn-accent" id="btnInstallUpdate" hidden>↻ Neu starten &amp; aktualisieren</button>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn modal-confirm" id="setClose">Schließen</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>WetterPilot · <span id="footVersion"></span></footer>
+
+<script>
+const WALLS = ["W12","W34","W5","W6","W7","W8"];
+const MAX_CUES = 20;
+
+let timeline = [];   // [{ id, wall, cues }]
+let pos = -1;        // global cue index, -1 = not started
+let uid = 1;
+function openRestartModal() { document.getElementById("modal").hidden = false; }
+function closeRestartModal() { document.getElementById("modal").hidden = true; }
+
+const elTimeline = document.getElementById("timeline");
+const elEmpty = document.getElementById("empty");
+
+// palette
+const palette = document.getElementById("palette");
+WALLS.forEach(w => {
+  const c = document.createElement("div");
+  c.className = "wall-chip";
+  c.textContent = w;
+  c.draggable = true;
+  c.addEventListener("dragstart", e => {
+    e.dataTransfer.setData("new-wall", w);
+    e.dataTransfer.effectAllowed = "copy";
+  });
+  palette.appendChild(c);
+});
+
+function flat() {
+  const out = [];
+  timeline.forEach((b, bi) => {
+    for (let i = 0; i < b.cues; i++) out.push({ blockIdx: bi, wall: b.wall, cueIdx: i });
+  });
+  return out;
+}
+
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+}
+
+function render() {
+  elEmpty.style.display = timeline.length ? "none" : "flex";
+  [...elTimeline.querySelectorAll(".tl-block")].forEach(n => n.remove());
+
+  const steps = flat();
+  const activeBlock = steps[pos] ? steps[pos].blockIdx : -1;
+
+  timeline.forEach((b, bi) => {
+    const block = el("div", "tl-block");
+    if (bi === activeBlock) block.classList.add("active");
+
+    const head = el("div", "tl-head");
+    const grip = el("span", "tl-grip", "⠿"); grip.title = "Reorder";
+    const order = el("span", "tl-order", String(bi + 1));
+    const name = el("span", "tl-name", b.wall);
+    const spacer = el("span", "spacer");
+
+    // clean stepper
+    const cueSet = el("div", "cue-set");
+    const lbl = el("span", "cs-label", "Cues");
+    const stepper = el("div", "stepper");
+    const minus = el("button", "step-btn", "−");
+    const val = el("span", "step-val", String(b.cues));
+    const plus = el("button", "step-btn", "+");
+    minus.disabled = b.cues <= 1;
+    plus.disabled = b.cues >= MAX_CUES;
+    minus.addEventListener("click", () => changeCues(bi, -1));
+    plus.addEventListener("click", () => changeCues(bi, +1));
+    stepper.append(minus, val, plus);
+    cueSet.append(lbl, stepper);
+
+    const remove = el("button", "tl-remove", "✕"); remove.title = "Remove";
+    remove.addEventListener("click", () => { timeline.splice(bi, 1); pos = -1; render(); });
+
+    head.append(grip, order, name, spacer, cueSet, remove);
+    block.appendChild(head);
+
+    // reorder via drag
+    grip.addEventListener("mousedown", () => { block.draggable = true; });
+    block.addEventListener("dragstart", e => {
+      e.dataTransfer.setData("move-idx", String(bi));
+      e.dataTransfer.effectAllowed = "move";
+    });
+    block.addEventListener("dragend", () => { block.draggable = false; });
+
+    const row = el("div", "cue-row");
+    for (let i = 0; i < b.cues; i++) {
+      const cue = el("div", "cue", "Cue " + (i + 1));
+      const globalIdx = steps.findIndex(s => s.blockIdx === bi && s.cueIdx === i);
+      if (globalIdx === pos) cue.classList.add("active");
+      else if (globalIdx < pos) cue.classList.add("done");
+      cue.addEventListener("click", () => navigate(globalIdx));
+      row.appendChild(cue);
+    }
+    block.appendChild(row);
+    elTimeline.appendChild(block);
+  });
+
+  // now-bar
+  const cur = steps[pos];
+  const nxt = steps[pos + 1];
+  const atEnd = steps.length > 0 && pos === steps.length - 1;
+  const btnNext = document.getElementById("btnNext");
+  const nextLbl = document.getElementById("nextLbl");
+  const nextVal = document.getElementById("nextVal");
+
+  document.getElementById("nowCurrent").textContent = cur ? (cur.wall + " · Cue " + (cur.cueIdx + 1)) : "–";
+
+  document.getElementById("btnBack").disabled = pos < 0;
+  btnNext.classList.remove("restart");
+  if (atEnd) {
+    btnNext.classList.add("restart");
+    nextLbl.textContent = "↺ START OVER";
+    nextVal.textContent = "back to start";
+    btnNext.disabled = false;
+  } else {
+    nextLbl.textContent = "NEXT ▶";
+    nextVal.textContent = nxt ? (nxt.wall + " · Cue " + (nxt.cueIdx + 1)) : "–";
+    btnNext.disabled = steps.length === 0;
+  }
+
+  // keep the active cue in view (only scrolls if it's off-screen)
+  const activeCue = elTimeline.querySelector(".cue.active");
+  if (activeCue) activeCue.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+function changeCues(bi, delta) {
+  const b = timeline[bi];
+  b.cues = Math.max(1, Math.min(MAX_CUES, b.cues + delta));
+  if (pos >= flat().length) pos = flat().length - 1;
+  render();
+}
+
+// transport
+document.getElementById("btnNext").addEventListener("click", () => {
+  const len = flat().length;
+  if (len === 0) return;
+  if (pos === len - 1) {
+    // at the end → confirm via popup before restarting
+    openRestartModal();
+    return;
+  }
+  navigate(pos + 1);
+});
+document.getElementById("btnBack").addEventListener("click", () => {
+  if (pos >= 0) navigate(pos - 1);
+});
+
+// restart confirmation popup
+document.getElementById("modalConfirm").addEventListener("click", () => {
+  closeRestartModal();
+  navigate(0);
+});
+document.getElementById("modalCancel").addEventListener("click", closeRestartModal);
+document.getElementById("modal").addEventListener("click", e => {
+  if (e.target.id === "modal") closeRestartModal();   // click backdrop to dismiss
+});
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  const restartOpen = !document.getElementById("modal").hidden;
+  const settingsOpen = !document.getElementById("settings").hidden;
+  if (settingsOpen) { if (e.key === "Escape") document.getElementById("setClose").click(); return; }
+  if (restartOpen) {
+    if (e.key === "Escape") closeRestartModal();
+    if (e.key === "Enter") document.getElementById("modalConfirm").click();
+    return;
+  }
+  if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); document.getElementById("btnNext").click(); }
+  if (e.key === "ArrowLeft") { e.preventDefault(); document.getElementById("btnBack").click(); }
+});
+
+// drop into timeline
+elTimeline.addEventListener("dragover", e => { e.preventDefault(); elTimeline.classList.add("drag-over"); });
+elTimeline.addEventListener("dragleave", e => { if (e.target === elTimeline) elTimeline.classList.remove("drag-over"); });
+elTimeline.addEventListener("drop", e => {
+  e.preventDefault();
+  elTimeline.classList.remove("drag-over");
+
+  const newWall = e.dataTransfer.getData("new-wall");
+  const moveIdx = e.dataTransfer.getData("move-idx");
+
+  const blocks = [...elTimeline.querySelectorAll(".tl-block")];
+  let insertAt = timeline.length;
+  for (let i = 0; i < blocks.length; i++) {
+    const r = blocks[i].getBoundingClientRect();
+    if (e.clientY < r.top + r.height / 2) { insertAt = i; break; }
+  }
+
+  if (newWall) {
+    timeline.splice(insertAt, 0, { id: uid++, wall: newWall, cues: 1 });
+  } else if (moveIdx !== "") {
+    const from = parseInt(moveIdx);
+    const [item] = timeline.splice(from, 1);
+    if (from < insertAt) insertAt--;
+    timeline.splice(insertAt, 0, item);
+  }
+  pos = -1;
+  render();
+});
+
+// ====================================================================
+//  Companion integration, settings, updates  (active only in the app)
+// ====================================================================
+const COMPANION = {
+  page: 65,
+  wallBank: { W1:25, W2:26, W3:27, W4:28, W5:29, W6:30, W7:31, W8:32 },
+  cueBank:  { 1:10, 2:11, 3:12, 4:13, 5:14, 6:18, 7:19, 8:20, 9:21, 10:22 },
+  nextBank: 24,
+};
+// combined walls trigger on the first wall of the pair
+function companionWall(w) { return w === "W12" ? "W1" : w === "W34" ? "W3" : w; }
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function getCfg() {
+  try { return JSON.parse(localStorage.getItem("wp_cfg")) || { ip: "", port: "8000" }; }
+  catch (e) { return { ip: "", port: "8000" }; }
+}
+function setCfg(c) { localStorage.setItem("wp_cfg", JSON.stringify(c)); }
+
+function setConn(ok, msg) {
+  const dot = document.getElementById("connDot");
+  const txt = document.getElementById("connText");
+  dot.classList.toggle("ok", !!ok);
+  dot.classList.toggle("off", !ok);
+  txt.textContent = "Companion: " + (msg || (ok ? "verbunden" : "nicht verbunden"));
+}
+
+let lastCompanionWall = null;
+
+// translate a timeline step into Companion button presses
+async function applyTarget(step, prev) {
+  if (!window.wp || !step) return;            // browser preview → UI only
+  const cfg = getCfg();
+  if (!cfg.ip) { setConn(false, "keine IP (Settings)"); return; }
+
+  const wall = companionWall(step.wall);
+  const wallChanged = lastCompanionWall !== wall || !prev || companionWall(prev.wall) !== wall;
+  const c = step.cueIdx + 1;                   // 1-based cue
+
+  const banks = [];
+  if (wallChanged) banks.push(COMPANION.wallBank[wall]);   // select that wall's playlist
+  if (c <= 10) {
+    banks.push(COMPANION.cueBank[c]);                      // absolute jump to cue
+  } else {
+    banks.push(COMPANION.cueBank[10]);                     // jump to cue 10 …
+    for (let i = 0; i < c - 10; i++) banks.push(COMPANION.nextBank); // … then step forward
+  }
+
+  let ok = true;
+  for (const bank of banks) {
+    const r = await window.wp.press({ ip: cfg.ip, port: cfg.port || "8000", page: COMPANION.page, bank });
+    ok = ok && r.ok;
+    await sleep(120);
+  }
+  lastCompanionWall = wall;
+  setConn(ok, ok ? "verbunden" : "keine Antwort");
+}
+
+// central navigation: change position, redraw, fire Companion
+function navigate(newPos) {
+  const steps = flat();
+  const prev = steps[pos];
+  pos = newPos;
+  render();
+  applyTarget(flat()[pos], prev);
+}
+
+// ---------- Settings modal ----------
+const settingsEl = document.getElementById("settings");
+function openSettings() {
+  const cfg = getCfg();
+  document.getElementById("setIp").value = cfg.ip || "";
+  document.getElementById("setPort").value = cfg.port || "8000";
+  document.getElementById("testStatus").textContent = "";
+  document.getElementById("testStatus").className = "set-teststatus";
+  settingsEl.hidden = false;
+}
+function saveSettings() {
+  const ip = document.getElementById("setIp").value.trim();
+  const port = document.getElementById("setPort").value.trim() || "8000";
+  setCfg({ ip, port });
+  lastCompanionWall = null;
+  setConn(false, ip ? "konfiguriert (" + ip + ")" : "keine IP");
+}
+document.getElementById("btnSettings").addEventListener("click", openSettings);
+document.getElementById("setClose").addEventListener("click", () => { saveSettings(); settingsEl.hidden = true; });
+settingsEl.addEventListener("click", e => { if (e.target.id === "settings") { saveSettings(); settingsEl.hidden = true; } });
+
+document.getElementById("btnTest").addEventListener("click", async () => {
+  saveSettings();
+  const st = document.getElementById("testStatus");
+  const cfg = getCfg();
+  if (!window.wp) { st.className = "set-teststatus err"; st.textContent = "Test nur in der App möglich"; return; }
+  if (!cfg.ip) { st.className = "set-teststatus err"; st.textContent = "Bitte IP eingeben"; return; }
+  st.className = "set-teststatus"; st.textContent = "teste …";
+  const r = await window.wp.ping({ ip: cfg.ip, port: cfg.port || "8000" });
+  if (r.ok) { st.className = "set-teststatus ok"; st.textContent = "✓ erreichbar"; setConn(true, "verbunden"); }
+  else { st.className = "set-teststatus err"; st.textContent = "✗ nicht erreichbar (" + (r.error || "Fehler") + ")"; setConn(false, "nicht erreichbar"); }
+});
+
+// ---------- Updates ----------
+const upStatus = document.getElementById("updateStatus");
+const btnInstall = document.getElementById("btnInstallUpdate");
+if (window.wp) {
+  window.wp.version().then(v => {
+    document.getElementById("appVersion").textContent = v;
+    document.getElementById("footVersion").textContent = "v" + v;
+  });
+  upStatus.textContent = "Sucht beim Start automatisch nach Updates.";
+  window.wp.onUpdate(d => {
+    if (d.state === "checking") upStatus.textContent = "Suche nach Updates …";
+    else if (d.state === "none") upStatus.textContent = "Du hast die neueste Version.";
+    else if (d.state === "available") upStatus.textContent = "Update " + d.version + " gefunden, lädt …";
+    else if (d.state === "downloading") upStatus.textContent = "Lädt Update … " + d.percent + "%";
+    else if (d.state === "downloaded") { upStatus.textContent = "Update " + d.version + " ist bereit."; btnInstall.hidden = false; }
+    else if (d.state === "error") upStatus.textContent = "Update-Fehler: " + d.message;
+  });
+  document.getElementById("btnCheckUpdate").addEventListener("click", () => window.wp.checkUpdate());
+  btnInstall.addEventListener("click", () => window.wp.installUpdate());
+} else {
+  document.getElementById("appVersion").textContent = "Browser-Vorschau";
+  document.getElementById("footVersion").textContent = "UI-Vorschau";
+  document.getElementById("btnCheckUpdate").disabled = true;
+}
+
+// ---------- init connection label ----------
+(function initConn() {
+  const cfg = getCfg();
+  setConn(false, cfg.ip ? "konfiguriert (" + cfg.ip + ")" : "keine IP (Settings)");
+})();
+
+render();
+</script>
+</body>
+</html>
