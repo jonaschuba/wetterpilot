@@ -512,6 +512,7 @@ function el(tag, cls, text) {
 }
 
 function render() {
+  saveTimeline();
   elEmpty.style.display = timeline.length ? "none" : "flex";
   [...elTimeline.querySelectorAll(".tl-block")].forEach(n => n.remove());
 
@@ -712,6 +713,18 @@ function setCfg(c) { localStorage.setItem("wp_cfg", JSON.stringify(c)); }
 // connection args passed to the main process
 function connArgs() { const c = getCfg(); return { ip: c.ip, port: c.port, https: !!c.https }; }
 
+// persist the built timeline so it's still there after a restart
+function saveTimeline() { try { localStorage.setItem("wp_timeline", JSON.stringify(timeline)); } catch (e) {} }
+function loadTimeline() {
+  try {
+    const t = JSON.parse(localStorage.getItem("wp_timeline"));
+    if (Array.isArray(t) && t.length) {
+      timeline = t;
+      uid = Math.max(0, ...t.map(b => b.id || 0)) + 1;
+    }
+  } catch (e) {}
+}
+
 function setConn(ok, msg) {
   const dot = document.getElementById("connDot");
   const txt = document.getElementById("connText");
@@ -851,6 +864,9 @@ if (window.wp) {
   document.getElementById("footVersion").textContent = "UI-Vorschau";
   document.getElementById("btnCheckUpdate").disabled = true;
 }
+
+// ---------- restore saved timeline ----------
+loadTimeline();
 
 // ---------- init connection label ----------
 (function initConn() {
