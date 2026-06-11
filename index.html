@@ -343,6 +343,40 @@
   .btn-accent { background: var(--rtl-blue); border-color: var(--rtl-blue); color: #fff; }
   .btn-accent:hover { filter: brightness(1.1); background: var(--rtl-blue); }
 
+  /* ---------- hotkeys ---------- */
+  .hk-row { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+  .hk-row label { flex: 0 0 110px; color: var(--muted); font-size: 14px; }
+  .hk-capture {
+    flex: 1; display: flex; align-items: center; gap: 10px;
+  }
+  .hk-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 80px; height: 36px; padding: 0 14px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    font-size: 14px; font-weight: 700; font-family: monospace; color: var(--text);
+    letter-spacing: .5px;
+  }
+  .hk-btn {
+    padding: 7px 14px; font-size: 13px; border-radius: 8px;
+    background: var(--panel-2); border: 1px solid var(--line);
+    color: var(--muted); cursor: pointer; font-family: inherit; font-weight: 700;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .hk-btn:hover { background: var(--panel-3); color: var(--text); }
+  .hk-btn.listening {
+    background: var(--rtl-red); border-color: var(--rtl-red); color: #fff;
+    animation: pulse-hk .7s infinite;
+  }
+  @keyframes pulse-hk {
+    0%,100% { opacity: 1; } 50% { opacity: .65; }
+  }
+  .hk-reset { padding: 7px 14px; font-size: 13px; border-radius: 8px;
+    background: transparent; border: 1px solid var(--line);
+    color: var(--faint); cursor: pointer; font-family: inherit; font-weight: 700;
+    transition: color .12s;
+  }
+  .hk-reset:hover { color: var(--text); }
+
   /* ---------- load all + toast ---------- */
   .btn-loadall {
     flex: 0 0 110px;
@@ -462,6 +496,34 @@
         <div class="set-actions">
           <button class="btn" id="btnCheckUpdate">Nach Updates suchen</button>
           <button class="btn btn-accent" id="btnInstallUpdate" hidden>↻ Neu starten &amp; aktualisieren</button>
+        </div>
+      </div>
+
+      <div class="set-section">
+        <div class="set-h">Hotkeys</div>
+        <div class="hk-row">
+          <label>NEXT</label>
+          <div class="hk-capture">
+            <span class="hk-badge" id="hkBadgeNext"></span>
+            <button class="hk-btn" id="hkBtnNext">Taste ändern</button>
+            <button class="hk-reset" id="hkResetNext" title="Standard wiederherstellen">↺</button>
+          </div>
+        </div>
+        <div class="hk-row">
+          <label>Back</label>
+          <div class="hk-capture">
+            <span class="hk-badge" id="hkBadgeBack"></span>
+            <button class="hk-btn" id="hkBtnBack">Taste ändern</button>
+            <button class="hk-reset" id="hkResetBack" title="Standard wiederherstellen">↺</button>
+          </div>
+        </div>
+        <div class="hk-row">
+          <label>LOAD / RELOAD</label>
+          <div class="hk-capture">
+            <span class="hk-badge" id="hkBadgeLoad"></span>
+            <button class="hk-btn" id="hkBtnLoad">Taste ändern</button>
+            <button class="hk-reset" id="hkResetLoad" title="Standard wiederherstellen">↺</button>
+          </div>
         </div>
       </div>
 
@@ -643,18 +705,84 @@ document.getElementById("modalCancel").addEventListener("click", closeRestartMod
 document.getElementById("modal").addEventListener("click", e => {
   if (e.target.id === "modal") closeRestartModal();   // click backdrop to dismiss
 });
+// ---------- Hotkeys ----------
+const HK_DEFAULTS = { next: "ArrowRight", back: "ArrowLeft", load: "" };
+
+function loadHotkeys() {
+  try { return Object.assign({}, HK_DEFAULTS, JSON.parse(localStorage.getItem("wp_hotkeys"))); }
+  catch (_) { return { ...HK_DEFAULTS }; }
+}
+function saveHotkeys(hk) { localStorage.setItem("wp_hotkeys", JSON.stringify(hk)); }
+
+function keyLabel(k) {
+  if (!k) return "–";
+  const map = { " ": "Space", "ArrowRight": "→", "ArrowLeft": "←", "ArrowUp": "↑", "ArrowDown": "↓",
+    "Enter": "Enter", "Escape": "Esc", "Backspace": "⌫", "Delete": "Del",
+    "F1":"F1","F2":"F2","F3":"F3","F4":"F4","F5":"F5","F6":"F6",
+    "F7":"F7","F8":"F8","F9":"F9","F10":"F10","F11":"F11","F12":"F12" };
+  return map[k] || k;
+}
+
+let hkState = loadHotkeys();
+let hkListening = null;   // which action is currently capturing
+
+function refreshHkBadges() {
+  document.getElementById("hkBadgeNext").textContent = keyLabel(hkState.next);
+  document.getElementById("hkBadgeBack").textContent = keyLabel(hkState.back);
+  document.getElementById("hkBadgeLoad").textContent = keyLabel(hkState.load);
+}
+
+function startListening(action) {
+  hkListening = action;
+  const btn = document.getElementById("hkBtn" + action[0].toUpperCase() + action.slice(1));
+  btn.classList.add("listening");
+  btn.textContent = "Taste drücken …";
+}
+function stopListening() {
+  if (!hkListening) return;
+  const id = "hkBtn" + hkListening[0].toUpperCase() + hkListening.slice(1);
+  const btn = document.getElementById(id);
+  if (btn) { btn.classList.remove("listening"); btn.textContent = "Taste ändern"; }
+  hkListening = null;
+}
+
+document.getElementById("hkBtnNext").addEventListener("click", () => startListening("next"));
+document.getElementById("hkBtnBack").addEventListener("click", () => startListening("back"));
+document.getElementById("hkBtnLoad").addEventListener("click", () => startListening("load"));
+document.getElementById("hkResetNext").addEventListener("click", () => { hkState.next = HK_DEFAULTS.next; saveHotkeys(hkState); refreshHkBadges(); });
+document.getElementById("hkResetBack").addEventListener("click", () => { hkState.back = HK_DEFAULTS.back; saveHotkeys(hkState); refreshHkBadges(); });
+document.getElementById("hkResetLoad").addEventListener("click", () => { hkState.load = HK_DEFAULTS.load; saveHotkeys(hkState); refreshHkBadges(); });
+
 document.addEventListener("keydown", e => {
-  if (e.target.tagName === "INPUT") return;
   const restartOpen = !document.getElementById("modal").hidden;
   const settingsOpen = !document.getElementById("settings").hidden;
+
+  // --- capture mode: intercept next keypress as new hotkey ---
+  if (hkListening) {
+    e.preventDefault();
+    if (e.key === "Escape") { stopListening(); return; }
+    hkState[hkListening] = e.key;
+    saveHotkeys(hkState);
+    refreshHkBadges();
+    stopListening();
+    return;
+  }
+
+  if (e.target.tagName === "INPUT") return;
   if (settingsOpen) { if (e.key === "Escape") document.getElementById("setClose").click(); return; }
   if (restartOpen) {
     if (e.key === "Escape") closeRestartModal();
     if (e.key === "Enter") document.getElementById("modalConfirm").click();
     return;
   }
-  if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); document.getElementById("btnNext").click(); }
-  if (e.key === "ArrowLeft") { e.preventDefault(); document.getElementById("btnBack").click(); }
+
+  if (hkState.next && (e.key === hkState.next || (hkState.next === "ArrowRight" && e.key === " "))) {
+    e.preventDefault(); document.getElementById("btnNext").click();
+  } else if (hkState.back && e.key === hkState.back) {
+    e.preventDefault(); document.getElementById("btnBack").click();
+  } else if (hkState.load && e.key === hkState.load) {
+    e.preventDefault(); document.getElementById("btnLoadAll").click();
+  }
 });
 
 // drop into timeline
@@ -861,6 +989,8 @@ function openSettings() {
   document.getElementById("setHttps").checked = !!cfg.https;
   document.getElementById("testStatus").textContent = "";
   document.getElementById("testStatus").className = "set-teststatus";
+  hkState = loadHotkeys();
+  refreshHkBadges();
   settingsEl.hidden = false;
 }
 function saveSettings() {
@@ -882,8 +1012,8 @@ document.getElementById("setHttps").addEventListener("change", (e) => {
 });
 
 document.getElementById("btnSettings").addEventListener("click", openSettings);
-document.getElementById("setClose").addEventListener("click", () => { saveSettings(); settingsEl.hidden = true; });
-settingsEl.addEventListener("click", e => { if (e.target.id === "settings") { saveSettings(); settingsEl.hidden = true; } });
+document.getElementById("setClose").addEventListener("click", () => { stopListening(); saveSettings(); settingsEl.hidden = true; });
+settingsEl.addEventListener("click", e => { if (e.target.id === "settings") { stopListening(); saveSettings(); settingsEl.hidden = true; } });
 
 document.getElementById("btnTest").addEventListener("click", async () => {
   saveSettings();
