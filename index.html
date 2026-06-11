@@ -576,7 +576,19 @@ function flat() {
   });
   return out;
 }
-function stepLabel(s) { return s.wall + " · Cue " + (s.cueIdx + 1); }
+
+// Wie viele Cues dieser Wand liefen in allen Blöcken VOR diesem Block?
+function wallCueOffset(step) {
+  let offset = 0;
+  for (let i = 0; i < step.blockIdx; i++) {
+    if (companionWall(timeline[i].wall) === companionWall(step.wall)) offset += timeline[i].cues;
+  }
+  return offset;
+}
+// Globale (wandweite) Cue-Nummer für einen Step
+function globalCueNum(step) { return wallCueOffset(step) + step.cueIdx + 1; }
+
+function stepLabel(s) { return s.wall + " · Cue " + globalCueNum(s); }
 
 function el(tag, cls, text) {
   const n = document.createElement(tag);
@@ -634,8 +646,8 @@ function render() {
     const row = el("div", "cue-row");
 
     for (let i = 0; i < b.cues; i++) {
-      const cue = el("div", "cue", "Cue " + (i + 1));
       const globalIdx = steps.findIndex(s => s.blockIdx === bi && s.cueIdx === i);
+      const cue = el("div", "cue", "Cue " + globalCueNum(steps[globalIdx]));
       if (globalIdx === pos) cue.classList.add("active");
       else if (pos >= 0 && globalIdx < pos) cue.classList.add("done");
       cue.addEventListener("click", () => navigate(globalIdx));
@@ -904,7 +916,7 @@ async function applyTarget(step, prev) {
 
   const wall = companionWall(step.wall);
   const wallChanged = lastCompanionWall !== wall;
-  const c = step.cueIdx + 1;                                // 1-based cue
+  const c = globalCueNum(step);                             // wandweit durchgezählter Cue
 
   const banks = [];
   if (wallChanged) banks.push(COMPANION.wallBank[wall]);    // Wand wählen, falls gewechselt
