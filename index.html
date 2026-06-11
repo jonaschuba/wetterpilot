@@ -778,11 +778,16 @@ function addPaletteItem(wall, label, sublabel) {
   palette.appendChild(c);
 }
 WALLS.forEach(w => addPaletteItem(w));
-// Sonder-Baustein: alle Wände in einem Schritt auf Cue 20 (sieht aus wie eine normale Wall)
+// Sonder-Bausteine (sehen aus wie normale Walls, lösen aber einen festen Companion-Button aus)
 addPaletteItem("ALL20", "ALLE", "Cue 20");
+addPaletteItem("CLEAR", "CLEAR", "Screens");
 
-// Sonder-Wand "ALLE Cue 20" als ein einzelner Trigger?
-function isAllStep(wall) { return wall === "ALL20"; }
+// Sonder-Bausteine: ein einzelner Trigger statt Wand/Cue-Logik (Seite 65)
+const SPECIAL = {
+  ALL20: { name: "ALLE",  sub: "Cue 20",  cueText: "Alle → Cue 20",  bank: 23 }, // ALLE CUE 20
+  CLEAR: { name: "CLEAR", sub: "Screens", cueText: "Clear Screens",  bank: 8 },  // CLEAR SCREENS
+};
+function isSpecial(wall) { return Object.prototype.hasOwnProperty.call(SPECIAL, wall); }
 
 function flat() {
   const out = [];
@@ -803,7 +808,7 @@ function wallCueOffset(step) {
 // Globale (wandweite) Cue-Nummer für einen Step
 function globalCueNum(step) { return wallCueOffset(step) + step.cueIdx + 1; }
 
-function stepLabel(s) { return isAllStep(s.wall) ? "ALLE · Cue 20" : s.wall + " · Cue " + globalCueNum(s); }
+function stepLabel(s) { return isSpecial(s.wall) ? (SPECIAL[s.wall].name + " · " + SPECIAL[s.wall].sub) : s.wall + " · Cue " + globalCueNum(s); }
 
 function el(tag, cls, text) {
   const n = document.createElement(tag);
@@ -823,13 +828,13 @@ function render() {
   timeline.forEach((b, bi) => {
     const block = el("div", "tl-block");
     if (bi === activeBlock) block.classList.add("active");
-    const isAll = isAllStep(b.wall);
-    if (isAll) block.classList.add("tl-block-all");
+    const isAll = isSpecial(b.wall);
+    if (isAll) block.classList.add("tl-block-special");
 
     const head = el("div", "tl-head");
     const grip = el("span", "tl-grip", "⠿"); grip.title = "Reorder";
     const order = el("span", "tl-order", String(bi + 1));
-    const name = el("span", "tl-name", isAll ? "ALLE" : b.wall);
+    const name = el("span", "tl-name", isAll ? SPECIAL[b.wall].name : b.wall);
     const spacer = el("span", "spacer");
 
     head.append(grip, order, name, spacer);
@@ -868,7 +873,7 @@ function render() {
 
     for (let i = 0; i < b.cues; i++) {
       const globalIdx = steps.findIndex(s => s.blockIdx === bi && s.cueIdx === i);
-      const cue = el("div", "cue", isAll ? "Alle → Cue 20" : "Cue " + globalCueNum(steps[globalIdx]));
+      const cue = el("div", "cue", isAll ? SPECIAL[b.wall].cueText : "Cue " + globalCueNum(steps[globalIdx]));
       if (globalIdx === pos) cue.classList.add("active");
       else if (pos >= 0 && globalIdx < pos) cue.classList.add("done");
       cue.addEventListener("click", () => navigate(globalIdx));
@@ -1122,7 +1127,6 @@ const COMPANION = {
   wallBank: { W1:25, W2:26, W3:27, W4:28, W5:29, W6:30, W7:31, W8:32 },
   cueBank:  { 1:10, 2:11, 3:12, 4:13, 5:14, 6:18, 7:19, 8:20, 9:21, 10:22 },
   nextBank: 24,
-  allCue20Bank: 23,   // "ALLE CUE 20" – fährt W1–W8 in einem Druck auf Cue 20
 };
 // combined walls trigger on the first wall of the pair
 function companionWall(w) { return w === "W12" ? "W1" : w === "W34" ? "W3" : w; }
@@ -1177,9 +1181,9 @@ async function applyTarget(step, prev) {
   if (!cfg.ip) { setConn(false, "keine IP (Settings)"); toast("Keine IP – bitte in den Settings (⚙) eintragen", "err"); return; }
 
   const banks = [];
-  if (isAllStep(step.wall)) {
-    // ALLE Cue 20: ein einziger Druck fährt W1–W8 auf Cue 20
-    banks.push(COMPANION.allCue20Bank);
+  if (isSpecial(step.wall)) {
+    // Sonder-Baustein (ALLE Cue 20 / Clear Screens): ein einziger fester Button-Druck
+    banks.push(SPECIAL[step.wall].bank);
     lastCompanionWall = null;   // danach Wand neu anwählen
   } else {
     const wall = companionWall(step.wall);
@@ -1234,7 +1238,7 @@ async function doLoad() {
   const banks = [16];                       // Speicher-Preset aller Playlists
   const seen = new Set();
   for (const b of timeline) {
-    if (isAllStep(b.wall)) continue;        // ALLE-Cue-20 braucht kein Vorladen
+    if (isSpecial(b.wall)) continue;        // Sonder-Bausteine brauchen kein Vorladen
     const w = companionWall(b.wall);
     if (!seen.has(w)) { seen.add(w); banks.push(COMPANION.wallBank[w]); } // jede Wand auf Stand
   }
