@@ -983,7 +983,7 @@ async function doLoad() {
   pos = -1;                   // zurück an den Anfang
   render();
   setConn(ok, ok ? "verbunden" : "keine Antwort");
-  toast((ok ? "✓ " : "✗ ") + (isReload ? "RELOAD" : "LOAD") + " – " + seen.size + " Wände (" + detail + ")", ok ? "ok" : "err");
+  if (!ok) toast("✗ " + (isReload ? "RELOAD" : "LOAD") + " – " + (detail || "Fehler"), "err");
 }
 
 document.getElementById("btnLoadAll").addEventListener("click", () => {

@@ -1,6 +1,6 @@
 {
   "name": "wetterpilot",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "WetterPilot – Steuerung der Studio-Wetterwände über die Companion HTTP API",
   "author": "Jonas Schuba",
   "license": "UNLICENSED",
