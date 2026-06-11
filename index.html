@@ -320,7 +320,10 @@
   .icon-btn:hover { background: var(--panel-3); }
 
   /* ---------- settings ---------- */
-  .modal-wide { width: min(520px, 92vw); }
+  .modal-wide { width: min(560px, 94vw); max-height: 90vh; overflow-y: auto;
+    scrollbar-width: thin; scrollbar-color: var(--panel-3) transparent; }
+  .modal-wide::-webkit-scrollbar { width: 6px; }
+  .modal-wide::-webkit-scrollbar-thumb { background: var(--panel-3); border-radius: 3px; }
   .set-section { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
   .set-section:first-of-type { margin-top: 8px; border-top: none; padding-top: 0; }
   .set-h { font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin-bottom: 14px; }
@@ -568,7 +571,6 @@
           <input id="setHttps" type="checkbox" />
           <span>verschlüsselt + selbstsigniertes Zertifikat akzeptieren</span>
         </div>
-        <div class="set-hint">Dieselbe Adresse wie die Companion-Oberfläche im Browser. Zeigt der Browser ein (rotes) Schloss / „https", dann HTTPS anhaken und Port leer lassen. Bei Regie-Wechsel hier anpassen.</div>
         <button class="btn set-test" id="btnTest">Verbindung testen</button>
         <span class="set-teststatus" id="testStatus"></span>
       </div>
