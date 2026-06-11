@@ -305,8 +305,8 @@
   .modal-confirm:hover { background: var(--live); filter: brightness(1.08); }
 
   /* ---------- header extras ---------- */
-  .conn .dot.ok { background: var(--rtl-cyan); }
-  .conn .dot.off { background: var(--faint); }
+  .conn .dot.ok { background: #28c76f; box-shadow: 0 0 6px #28c76f; }
+  .conn .dot.off { background: var(--faint); box-shadow: none; }
   .icon-btn {
     width: 40px; height: 40px; border-radius: 10px;
     background: var(--panel-2); border: 1px solid var(--line);
@@ -454,7 +454,7 @@
   <div class="modal-overlay" id="modal" hidden>
     <div class="modal" role="dialog" aria-modal="true">
       <div class="modal-title">Neu laden?</div>
-      <div class="modal-text">Legt alle Wände wieder auf Stand und springt zum Anfang. Unterbricht, was gerade läuft.</div>
+      <div class="modal-text">Springt zum Anfang der Timeline zurück. Unterbricht, was gerade läuft.</div>
       <div class="modal-actions">
         <button class="btn modal-cancel" id="modalCancel">Abbrechen</button>
         <button class="btn modal-confirm" id="modalConfirm">↺ Neu laden</button>
@@ -926,7 +926,7 @@ async function applyTarget(step, prev) {
   }
   lastCompanionWall = wall;
   setConn(ok, ok ? "verbunden" : "keine Antwort");
-  toast((ok ? "✓ " : "✗ ") + stepLabel(step) + "  (" + detail + ")", ok ? "ok" : "err");
+  if (!ok) toast("✗ " + stepLabel(step) + "  (" + detail + ")", "err");
 }
 
 // central navigation: change position, redraw, fire Companion
