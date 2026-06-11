@@ -831,9 +831,15 @@ function render() {
     btnLoad.classList.toggle("is-reload", pos >= 0);
   }
 
-  // keep the active block in view
+  // scroll so the active block is visible — and if there's a next block, scroll that
+  // into view at the bottom so the operator always sees what's coming
+  const allBlocks = [...elTimeline.querySelectorAll(".tl-block")];
   const activeBlockEl = elTimeline.querySelector(".tl-block.active");
-  if (activeBlockEl) activeBlockEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  if (activeBlockEl) {
+    const activeBlockIdx = allBlocks.indexOf(activeBlockEl);
+    const scrollTarget = allBlocks[activeBlockIdx + 1] || activeBlockEl;
+    scrollTarget.scrollIntoView({ block: "end", behavior: "smooth" });
+  }
 }
 
 function changeCues(bi, delta) {
