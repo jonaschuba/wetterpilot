@@ -132,15 +132,8 @@
   }
   .wall-chip:hover { background: var(--panel-3); border-color: var(--faint); transform: translateY(-1px); }
   .wall-chip:active { cursor: grabbing; }
-  /* Sonder-Baustein "ALLE Cue 20" */
-  .wall-chip-all {
-    font-size: 14px; padding: 14px 8px;
-    border-color: var(--rtl-blue); color: var(--rtl-cyan);
-    background: rgba(0,54,242,.12);
-  }
-  .wall-chip-all:hover { background: rgba(0,54,242,.22); border-color: var(--rtl-cyan); }
-  .tl-block-all { border-color: var(--rtl-blue); }
-  .tl-block-all .tl-name { color: var(--rtl-cyan); }
+  .wall-chip .wc-main { display: block; line-height: 1.1; }
+  .wall-chip .wc-sub { display: block; font-size: 12px; font-weight: 400; color: var(--muted); margin-top: 2px; }
   .hint {
     margin-top: 18px;
     font-size: 12.5px;
@@ -327,6 +320,13 @@
     transition: background .12s;
   }
   .icon-btn:hover { background: var(--panel-3); }
+  .btn-regie {
+    height: 40px; padding: 0 16px; border-radius: 10px;
+    background: var(--panel-2); border: 1px solid var(--line);
+    color: var(--text); font-family: inherit; font-weight: 700; font-size: 14px;
+    cursor: pointer; transition: background .12s, border-color .12s;
+  }
+  .btn-regie:hover { background: var(--panel-3); border-color: var(--faint); }
 
   /* ---------- settings ---------- */
   .modal-wide { width: min(560px, 94vw); max-height: 90vh; overflow-y: auto;
@@ -529,6 +529,7 @@
     <div class="title">Wetter<span>Pilot</span></div>
     <div class="spacer"></div>
     <div class="conn" id="conn"><span class="dot" id="connDot"></span> <span id="connText">Companion: not configured</span></div>
+    <button class="btn-regie" id="btnRegie" title="Picturall-Webseite im Browser öffnen">↗ Picturall</button>
     <button class="icon-btn" id="btnHelp" title="Hilfe">?</button>
     <button class="icon-btn" id="btnSettings" title="Settings">⚙</button>
   </header>
@@ -746,10 +747,20 @@ const elEmpty = document.getElementById("empty");
 
 // palette
 const palette = document.getElementById("palette");
-function addPaletteItem(wall, label, extraClass) {
+function addPaletteItem(wall, label, sublabel) {
   const c = document.createElement("div");
-  c.className = "wall-chip" + (extraClass ? " " + extraClass : "");
-  c.textContent = label || wall;
+  c.className = "wall-chip";
+  if (sublabel) {
+    const main = document.createElement("span");
+    main.className = "wc-main";
+    main.textContent = label || wall;
+    const sub = document.createElement("span");
+    sub.className = "wc-sub";
+    sub.textContent = sublabel;
+    c.append(main, sub);
+  } else {
+    c.textContent = label || wall;
+  }
   c.draggable = true;
   c.addEventListener("dragstart", e => {
     e.dataTransfer.setData("new-wall", wall);
@@ -767,8 +778,8 @@ function addPaletteItem(wall, label, extraClass) {
   palette.appendChild(c);
 }
 WALLS.forEach(w => addPaletteItem(w));
-// Sonder-Baustein: alle Wände in einem Schritt auf Cue 20
-addPaletteItem("ALL20", "ALLE · Cue 20", "wall-chip-all");
+// Sonder-Baustein: alle Wände in einem Schritt auf Cue 20 (sieht aus wie eine normale Wall)
+addPaletteItem("ALL20", "ALLE", "Cue 20");
 
 // Sonder-Wand "ALLE Cue 20" als ein einzelner Trigger?
 function isAllStep(wall) { return wall === "ALL20"; }
@@ -1291,6 +1302,13 @@ const helpEl = document.getElementById("help");
 document.getElementById("btnHelp").addEventListener("click", () => { helpEl.hidden = false; });
 document.getElementById("helpClose").addEventListener("click", () => { helpEl.hidden = true; });
 helpEl.addEventListener("click", e => { if (e.target.id === "help") helpEl.hidden = true; });
+
+// ---------- Regie-Webseite im Standardbrowser öffnen ----------
+const REGIE_URL = "http://webapp:8084/regie/?";
+document.getElementById("btnRegie").addEventListener("click", () => {
+  if (window.wp && window.wp.openExternal) window.wp.openExternal(REGIE_URL);
+  else window.open(REGIE_URL, "_blank");
+});
 
 document.getElementById("btnSettings").addEventListener("click", openSettings);
 document.getElementById("setClose").addEventListener("click", () => { stopListening(); saveSettings(); settingsEl.hidden = true; });

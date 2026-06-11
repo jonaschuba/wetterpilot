@@ -9,4 +9,6 @@ contextBridge.exposeInMainWorld("wp", {
   installUpdate: () => ipcRenderer.invoke("update:install"),
   onUpdate: (cb) => ipcRenderer.on("update:status", (_e, d) => cb(d)),
   version: () => ipcRenderer.invoke("app:version"),
+  // im Standardbrowser öffnen
+  openExternal: (url) => ipcRenderer.invoke("app:openExternal", url),
 });

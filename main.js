@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Notification } = require("electron");
+const { app, BrowserWindow, ipcMain, Notification, shell } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const path = require("path");
 const http = require("http");
@@ -88,3 +88,4 @@ autoUpdater.on("update-downloaded", (i) => {
 ipcMain.handle("update:check", () => { try { autoUpdater.checkForUpdates(); } catch (e) { sendStatus({ state: "error", message: String(e) }); } });
 ipcMain.handle("update:install", () => { autoUpdater.quitAndInstall(); });
 ipcMain.handle("app:version", () => app.getVersion());
+ipcMain.handle("app:openExternal", (_e, url) => { try { return shell.openExternal(url); } catch (e) { return false; } });
