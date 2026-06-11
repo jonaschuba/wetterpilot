@@ -340,10 +340,12 @@
 
   /* ---------- load all + toast ---------- */
   .btn-loadall {
-    flex: 0 0 110px; font-size: 20px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    flex: 0 0 110px;
+    display: flex; align-items: center; justify-content: center;
   }
-  .btn-loadall .la-txt { font-size: 12px; letter-spacing: 1px; color: var(--muted); }
+  .btn-loadall .la-txt { font-size: 16px; font-weight: 700; letter-spacing: 1px; }
+  .btn-loadall.is-reload { border-color: var(--rtl-blue); }
+  .btn-loadall.is-reload .la-txt { color: var(--rtl-blue); }
   .toast {
     position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
     z-index: 200; max-width: 80vw;
@@ -400,7 +402,7 @@
           <span class="nx-val" id="nextVal">–</span>
         </button>
         <button class="btn btn-back" id="btnBack">◀ Back</button>
-        <button class="btn btn-loadall" id="btnLoadAll" title="Vor dem Start einmal drücken – lädt alle Cues vor">⤓<span class="la-txt">LOAD ALL</span></button>
+        <button class="btn btn-loadall" id="btnLoadAll" title="Alle Wände vorladen und auf Stand legen"><span class="la-txt">LOAD</span></button>
       </div>
 
       <div class="timeline-wrap" id="timeline">
@@ -411,11 +413,11 @@
 
   <div class="modal-overlay" id="modal" hidden>
     <div class="modal" role="dialog" aria-modal="true">
-      <div class="modal-title">Restart playback?</div>
-      <div class="modal-text">This jumps back to the very first cue and starts over.</div>
+      <div class="modal-title">Neu laden?</div>
+      <div class="modal-text">Legt alle Wände wieder auf Stand und springt zum Anfang. Unterbricht, was gerade läuft.</div>
       <div class="modal-actions">
-        <button class="btn modal-cancel" id="modalCancel">Cancel</button>
-        <button class="btn modal-confirm" id="modalConfirm">↺ Restart</button>
+        <button class="btn modal-cancel" id="modalCancel">Abbrechen</button>
+        <button class="btn modal-confirm" id="modalConfirm">↺ Neu laden</button>
       </div>
     </div>
   </div>
@@ -497,12 +499,11 @@ WALLS.forEach(w => {
 function flat() {
   const out = [];
   timeline.forEach((b, bi) => {
-    out.push({ blockIdx: bi, wall: b.wall, stand: true });          // Stand zuerst
     for (let i = 0; i < b.cues; i++) out.push({ blockIdx: bi, wall: b.wall, cueIdx: i });
   });
   return out;
 }
-function stepLabel(s) { return s.stand ? (s.wall + " · Stand") : (s.wall + " · Cue " + (s.cueIdx + 1)); }
+function stepLabel(s) { return s.wall + " · Cue " + (s.cueIdx + 1); }
 
 function el(tag, cls, text) {
   const n = document.createElement(tag);
@@ -559,14 +560,6 @@ function render() {
 
     const row = el("div", "cue-row");
 
-    // Stand-Chip zuerst
-    const standChip = el("div", "cue stand", "Stand");
-    const standIdx = steps.findIndex(s => s.blockIdx === bi && s.stand);
-    if (standIdx === pos) standChip.classList.add("active");
-    else if (pos >= 0 && standIdx < pos) standChip.classList.add("done");
-    standChip.addEventListener("click", () => navigate(standIdx));
-    row.appendChild(standChip);
-
     for (let i = 0; i < b.cues; i++) {
       const cue = el("div", "cue", "Cue " + (i + 1));
       const globalIdx = steps.findIndex(s => s.blockIdx === bi && s.cueIdx === i);
@@ -590,16 +583,21 @@ function render() {
   document.getElementById("nowCurrent").textContent = cur ? stepLabel(cur) : "–";
 
   document.getElementById("btnBack").disabled = pos < 0;
-  btnNext.classList.remove("restart");
   if (atEnd) {
-    btnNext.classList.add("restart");
-    nextLbl.textContent = "↺ START OVER";
-    nextVal.textContent = "back to start";
-    btnNext.disabled = false;
+    nextLbl.textContent = "ENDE";
+    nextVal.textContent = "alles abgespielt";
+    btnNext.disabled = true;
   } else {
     nextLbl.textContent = "NEXT ▶";
     nextVal.textContent = nxt ? stepLabel(nxt) : "–";
     btnNext.disabled = steps.length === 0;
+  }
+
+  // LOAD / RELOAD-Button: "LOAD" am Anfang, "RELOAD" sobald Cues liefen
+  const btnLoad = document.getElementById("btnLoadAll");
+  if (btnLoad) {
+    btnLoad.querySelector(".la-txt").textContent = pos < 0 ? "LOAD" : "RELOAD";
+    btnLoad.classList.toggle("is-reload", pos >= 0);
   }
 
   // keep the active cue in view (only scrolls if it's off-screen)
@@ -618,21 +616,17 @@ function changeCues(bi, delta) {
 document.getElementById("btnNext").addEventListener("click", () => {
   const len = flat().length;
   if (len === 0) return;
-  if (pos === len - 1) {
-    // at the end → confirm via popup before restarting
-    openRestartModal();
-    return;
-  }
+  if (pos >= len - 1) return;          // am Ende: nichts (zum Neustart RELOAD nutzen)
   navigate(pos + 1);
 });
 document.getElementById("btnBack").addEventListener("click", () => {
   if (pos >= 0) navigate(pos - 1);
 });
 
-// restart confirmation popup
+// RELOAD-Bestätigung
 document.getElementById("modalConfirm").addEventListener("click", () => {
   closeRestartModal();
-  navigate(0);
+  doLoad();
 });
 document.getElementById("modalCancel").addEventListener("click", closeRestartModal);
 document.getElementById("modal").addEventListener("click", e => {
@@ -744,20 +738,15 @@ async function applyTarget(step, prev) {
 
   const wall = companionWall(step.wall);
   const wallChanged = lastCompanionWall !== wall;
+  const c = step.cueIdx + 1;                                // 1-based cue
 
   const banks = [];
-  if (step.stand) {
-    // nur Playlist wählen → landet auf 0.1 = Stand (kein Cue abspielen)
-    banks.push(COMPANION.wallBank[wall]);
+  if (wallChanged) banks.push(COMPANION.wallBank[wall]);    // Wand wählen, falls gewechselt
+  if (c <= 10) {
+    banks.push(COMPANION.cueBank[c]);                       // absoluter Sprung auf Cue
   } else {
-    const c = step.cueIdx + 1;                              // 1-based cue
-    if (wallChanged) banks.push(COMPANION.wallBank[wall]);  // Wand wählen, falls gewechselt
-    if (c <= 10) {
-      banks.push(COMPANION.cueBank[c]);                     // absoluter Sprung auf Cue
-    } else {
-      banks.push(COMPANION.cueBank[10]);                    // auf Cue 10 …
-      for (let i = 0; i < c - 10; i++) banks.push(COMPANION.nextBank); // … dann weitersteppen
-    }
+    banks.push(COMPANION.cueBank[10]);                      // auf Cue 10 …
+    for (let i = 0; i < c - 10; i++) banks.push(COMPANION.nextBank); // … dann weitersteppen
   }
 
   let ok = true;
@@ -783,16 +772,46 @@ function navigate(newPos) {
   applyTarget(flat()[pos], prev);
 }
 
-// ---------- LOAD ALL (preload all cues – page 65 / bank 16) ----------
-document.getElementById("btnLoadAll").addEventListener("click", async () => {
+// ---------- LOAD / RELOAD ----------
+// 1) Speicher-Vorladen aller Playlists (Seite 65 / Bank 16)
+// 2) jede in der Timeline genutzte Wand einmal auf Stand (0.1) legen
+// 3) Cursor an den Anfang -> erster NEXT auf einer Wand spielt direkt Cue 1
+async function doLoad() {
   if (!window.wp) { toast("Nur in der App möglich", "err"); return; }
   const cfg = getCfg();
   if (!cfg.ip) { toast("Keine IP – bitte in den Settings eintragen", "err"); return; }
-  toast("LOAD ALL …");
-  const r = await window.wp.press({ ...connArgs(), page: 65, bank: 16 });
-  lastCompanionWall = null;
-  setConn(r.ok, r.ok ? "verbunden" : "keine Antwort");
-  toast(r.ok ? "✓ LOAD ALL gesendet (HTTP " + r.status + ")" : "✗ LOAD ALL: " + (r.error || ("HTTP " + r.status)), r.ok ? "ok" : "err");
+  if (timeline.length === 0) { toast("Erst eine Timeline bauen", "err"); return; }
+
+  const ca = connArgs();
+  const isReload = pos >= 0;
+  toast(isReload ? "RELOAD …" : "LOAD …");
+
+  const banks = [16];                       // Speicher-Preset aller Playlists
+  const seen = new Set();
+  for (const b of timeline) {
+    const w = companionWall(b.wall);
+    if (!seen.has(w)) { seen.add(w); banks.push(COMPANION.wallBank[w]); } // jede Wand auf Stand
+  }
+
+  let ok = true, detail = "";
+  for (const bank of banks) {
+    const r = await window.wp.press({ ...ca, page: 65, bank });
+    ok = ok && r.ok;
+    detail = r.ok ? ("HTTP " + r.status) : (r.error || ("HTTP " + r.status));
+    await sleep(150);
+  }
+
+  lastCompanionWall = null;   // erster NEXT wählt die Wand neu an
+  pos = -1;                   // zurück an den Anfang
+  render();
+  setConn(ok, ok ? "verbunden" : "keine Antwort");
+  toast((ok ? "✓ " : "✗ ") + (isReload ? "RELOAD" : "LOAD") + " – " + seen.size + " Wände (" + detail + ")", ok ? "ok" : "err");
+}
+
+document.getElementById("btnLoadAll").addEventListener("click", () => {
+  // RELOAD (es liefen schon Cues) erst bestätigen; LOAD am Anfang direkt
+  if (pos >= 0) openRestartModal();
+  else doLoad();
 });
 
 // ---------- Settings modal ----------
