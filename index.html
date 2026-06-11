@@ -400,6 +400,57 @@
   .help-table tr:last-child td { border-bottom: none; }
   .help-key { display: inline-block; background: var(--panel-3); border: 1px solid var(--faint); border-radius: 5px; padding: 2px 9px; font-size: 13px; font-weight: 700; font-family: monospace; color: var(--text); }
 
+  /* ---------- tutorial ---------- */
+  .tut-backdrop {
+    position: fixed; inset: 0; z-index: 300;
+    pointer-events: none;
+  }
+  .tut-backdrop.active { pointer-events: auto; }
+  .tut-spot {
+    position: fixed; z-index: 301;
+    border-radius: 12px;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,.72);
+    pointer-events: none;
+    transition: top .3s, left .3s, width .3s, height .3s;
+  }
+  .tut-tooltip {
+    position: fixed; z-index: 302;
+    background: var(--panel);
+    border: 1px solid var(--rtl-blue);
+    border-radius: 14px;
+    padding: 18px 22px 16px;
+    width: 280px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.6);
+    pointer-events: auto;
+    transition: top .3s, left .3s;
+  }
+  .tut-step { font-size: 11px; font-weight: 700; letter-spacing: 1.3px; text-transform: uppercase; color: var(--rtl-blue); margin-bottom: 8px; }
+  .tut-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+  .tut-body { font-size: 14px; color: var(--muted); line-height: 1.55; margin-bottom: 18px; }
+  .tut-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .tut-btn-next {
+    background: var(--rtl-blue); border: none; border-radius: 9px;
+    color: #fff; font-family: inherit; font-weight: 700; font-size: 14px;
+    padding: 9px 20px; cursor: pointer;
+    transition: filter .12s;
+  }
+  .tut-btn-next:hover { filter: brightness(1.12); }
+  .tut-btn-skip {
+    background: transparent; border: none;
+    color: var(--faint); font-family: inherit; font-size: 13px;
+    cursor: pointer; padding: 4px 0;
+  }
+  .tut-btn-skip:hover { color: var(--muted); }
+  .tut-dots { display: flex; gap: 6px; align-items: center; }
+  .tut-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line); transition: background .2s; }
+  .tut-dot.on { background: var(--rtl-blue); }
+  /* arrow: small triangle from tooltip towards spotlight */
+  .tut-arrow {
+    position: fixed; z-index: 302;
+    width: 0; height: 0;
+    pointer-events: none;
+  }
+
   /* ---------- load all + toast ---------- */
   .btn-loadall {
     flex: 0 0 110px;
@@ -443,6 +494,7 @@
     <div class="title">Wetter<span>Pilot</span></div>
     <div class="spacer"></div>
     <div class="conn" id="conn"><span class="dot" id="connDot"></span> <span id="connText">Companion: not configured</span></div>
+    <button class="icon-btn" id="btnTutorial" title="Tutorial" style="font-size:15px;font-weight:700;">▷</button>
     <button class="icon-btn" id="btnHelp" title="Hilfe">?</button>
     <button class="icon-btn" id="btnSettings" title="Settings">⚙</button>
   </header>
@@ -607,6 +659,20 @@
           </ul>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Tutorial overlay -->
+  <div class="tut-backdrop" id="tutBackdrop"></div>
+  <div class="tut-spot" id="tutSpot" hidden></div>
+  <div class="tut-tooltip" id="tutTooltip" hidden>
+    <div class="tut-step" id="tutStep"></div>
+    <div class="tut-title" id="tutTitle"></div>
+    <div class="tut-body" id="tutBody"></div>
+    <div class="tut-actions">
+      <button class="tut-btn-skip" id="tutSkip">Überspringen</button>
+      <div class="tut-dots" id="tutDots"></div>
+      <button class="tut-btn-next" id="tutNext">Weiter →</button>
     </div>
   </div>
 
@@ -1155,6 +1221,109 @@ if (window.wp) {
   document.getElementById("footVersion").textContent = "UI-Vorschau";
   document.getElementById("btnCheckUpdate").disabled = true;
 }
+
+// ---------- Tutorial ----------
+const TUT_STEPS = [
+  {
+    target: () => document.getElementById("palette"),
+    title: "Wall hinzufügen",
+    body: "Klick auf eine Wand links – sie landet direkt in der Timeline. Oder per Drag & Drop an die gewünschte Position.",
+    side: "right",
+  },
+  {
+    target: () => elTimeline.querySelector(".stepper") || document.getElementById("btnLoadAll"),
+    title: "Cue-Anzahl einstellen",
+    body: "Mit + und − die Anzahl der Cues für diese Wand festlegen. Max. 20 Cues pro Wand.",
+    side: "right",
+  },
+  {
+    target: () => document.getElementById("palette"),
+    title: "Weitere Wände hinzufügen",
+    body: "Einfach weitere Wände anklicken. Die Reihenfolge in der Timeline = Sendeablauf. Per ⠿ lässt sich alles verschieben.",
+    side: "right",
+  },
+  {
+    target: () => document.getElementById("btnLoadAll"),
+    title: "LOAD drücken",
+    body: "Vor der Sendung einmal LOAD drücken – bereitet alle Wände auf Stand vor. Kein Video startet noch.",
+    side: "top",
+  },
+  {
+    target: () => document.getElementById("btnNext"),
+    title: "NEXT – los geht's",
+    body: "Mit NEXT (oder Pfeiltaste →) jeden Cue live triggern. Darunter steht immer, was als nächstes kommt.",
+    side: "top",
+  },
+];
+
+let tutIdx = 0;
+
+function tutSpotFor(targetEl) {
+  const r = targetEl.getBoundingClientRect();
+  const pad = 10;
+  return { top: r.top - pad, left: r.left - pad, width: r.width + pad * 2, height: r.height + pad * 2 };
+}
+
+function tutCalcPos(spot, side) {
+  const margin = 18, tw = 280, th = 190;
+  let top, left;
+  if (side === "right")  { top = spot.top + spot.height / 2 - th / 2; left = spot.left + spot.width + margin; }
+  else if (side === "left")  { top = spot.top + spot.height / 2 - th / 2; left = spot.left - tw - margin; }
+  else if (side === "top")   { top = spot.top - th - margin; left = spot.left + spot.width / 2 - tw / 2; }
+  else                       { top = spot.top + spot.height + margin; left = spot.left + spot.width / 2 - tw / 2; }
+  top  = Math.max(12, Math.min(window.innerHeight - th - 12, top));
+  left = Math.max(12, Math.min(window.innerWidth  - tw - 12, left));
+  return { top, left };
+}
+
+function tutShow(idx) {
+  const step = TUT_STEPS[idx];
+  const targetEl = step.target();
+  if (!targetEl) { tutNext(); return; }
+
+  const spot = tutSpotFor(targetEl);
+  const pos  = tutCalcPos(spot, step.side);
+
+  const spotEl = document.getElementById("tutSpot");
+  const tipEl  = document.getElementById("tutTooltip");
+  spotEl.hidden = false;
+  tipEl.hidden  = false;
+  document.getElementById("tutBackdrop").classList.add("active");
+
+  spotEl.style.cssText = "top:" + spot.top + "px;left:" + spot.left + "px;width:" + spot.width + "px;height:" + spot.height + "px";
+  tipEl.style.cssText  = "top:" + pos.top  + "px;left:" + pos.left  + "px";
+
+  document.getElementById("tutStep").textContent  = "Schritt " + (idx + 1) + " / " + TUT_STEPS.length;
+  document.getElementById("tutTitle").textContent = step.title;
+  document.getElementById("tutBody").textContent  = step.body;
+  document.getElementById("tutNext").textContent  = idx < TUT_STEPS.length - 1 ? "Weiter →" : "Fertig ✓";
+
+  const dots = document.getElementById("tutDots");
+  while (dots.firstChild) dots.removeChild(dots.firstChild);
+  TUT_STEPS.forEach(function(_, i) {
+    const d = document.createElement("div");
+    d.className = i === idx ? "tut-dot on" : "tut-dot";
+    dots.appendChild(d);
+  });
+}
+
+function tutClose() {
+  document.getElementById("tutSpot").hidden = true;
+  document.getElementById("tutTooltip").hidden = true;
+  document.getElementById("tutBackdrop").classList.remove("active");
+  tutIdx = 0;
+}
+
+function tutNext() {
+  tutIdx++;
+  if (tutIdx >= TUT_STEPS.length) { tutClose(); return; }
+  tutShow(tutIdx);
+}
+
+document.getElementById("btnTutorial").addEventListener("click", function() { tutIdx = 0; tutShow(0); });
+document.getElementById("tutNext").addEventListener("click", tutNext);
+document.getElementById("tutSkip").addEventListener("click", tutClose);
+document.getElementById("tutBackdrop").addEventListener("click", tutClose);
 
 // ---------- restore saved timeline ----------
 loadTimeline();
