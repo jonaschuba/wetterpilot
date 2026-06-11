@@ -132,6 +132,15 @@
   }
   .wall-chip:hover { background: var(--panel-3); border-color: var(--faint); transform: translateY(-1px); }
   .wall-chip:active { cursor: grabbing; }
+  /* Sonder-Baustein "ALLE Cue 20" */
+  .wall-chip-all {
+    font-size: 14px; padding: 14px 8px;
+    border-color: var(--rtl-blue); color: var(--rtl-cyan);
+    background: rgba(0,54,242,.12);
+  }
+  .wall-chip-all:hover { background: rgba(0,54,242,.22); border-color: var(--rtl-cyan); }
+  .tl-block-all { border-color: var(--rtl-blue); }
+  .tl-block-all .tl-name { color: var(--rtl-cyan); }
   .hint {
     margin-top: 18px;
     font-size: 12.5px;
@@ -404,14 +413,26 @@
   .help-key { display: inline-block; background: var(--panel-3); border: 1px solid var(--faint); border-radius: 5px; padding: 2px 9px; font-size: 13px; font-weight: 700; font-family: monospace; color: var(--text); }
 
   /* ---------- tutorial start button ---------- */
+  .wall-actions { margin-top: auto; flex: 0 0 auto; display: flex; flex-direction: column; gap: 10px; padding-top: 16px; }
   .btn-tutstart {
-    margin-top: auto; width: 100%; flex: 0 0 auto;
+    width: 100%;
     padding: 12px 14px; border-radius: 12px;
     background: var(--panel-2); border: 1px solid var(--line);
     color: var(--text); font-family: inherit; font-weight: 700; font-size: 14px;
     cursor: pointer; transition: background .15s, border-color .15s, transform .08s;
   }
   .btn-tutstart:hover { background: var(--panel-3); border-color: var(--faint); transform: translateY(-1px); }
+  .tl-footer {
+    flex: 0 0 auto; display: flex; justify-content: center;
+    padding: 12px 20px; border-top: 1px solid var(--line);
+  }
+  .btn-clear {
+    padding: 8px 14px; border-radius: 10px;
+    background: transparent; border: 1px solid var(--line);
+    color: var(--muted); font-family: inherit; font-weight: 700; font-size: 13px;
+    cursor: pointer; transition: background .15s, border-color .15s, color .15s;
+  }
+  .btn-clear:hover { background: rgba(250,0,46,.1); border-color: var(--rtl-red); color: var(--rtl-red); }
 
   /* ---------- tutorial overlay ---------- */
   /* backdrop never blocks clicks — the user performs the real action through it */
@@ -517,7 +538,9 @@
       <h2>Walls</h2>
       <div class="body">
         <div class="palette-grid" id="palette"></div>
-        <button class="btn-tutstart" id="btnTutStart">▷ Tutorial starten</button>
+        <div class="wall-actions">
+          <button class="btn-tutstart" id="btnTutStart">▷ Tutorial starten</button>
+        </div>
       </div>
     </section>
 
@@ -538,6 +561,10 @@
       <div class="timeline-wrap" id="timeline">
         <div class="timeline-empty" id="empty">Drag walls from the left to build the playback order.</div>
       </div>
+
+      <div class="tl-footer">
+        <button class="btn-clear" id="btnClear">🗑 Timeline leeren</button>
+      </div>
     </section>
   </main>
 
@@ -548,6 +575,17 @@
       <div class="modal-actions">
         <button class="btn modal-cancel" id="modalCancel">Abbrechen</button>
         <button class="btn modal-confirm" id="modalConfirm">↺ Neu laden</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="clearModal" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-title">Timeline leeren?</div>
+      <div class="modal-text">Alle Walls werden aus der Timeline entfernt. Das lässt sich nicht rückgängig machen.</div>
+      <div class="modal-actions">
+        <button class="btn modal-cancel" id="clearCancel">Abbrechen</button>
+        <button class="btn modal-confirm" id="clearConfirm">🗑 Leeren</button>
       </div>
     </div>
   </div>
@@ -644,6 +682,7 @@
           <ul class="help-list">
             <li>Cue direkt anklicken für manuellen Sprung</li>
             <li>Gleiche Wand mehrfach → Cues zählen weiter (W1 C1, C2 → W5 → W1 C3, C4)</li>
+            <li>„ALLE · Cue 20" fährt mit einem Schritt alle Wände auf Cue 20</li>
             <li>W12 → steuert W1 · W34 → steuert W3</li>
             <li>Timeline bleibt nach Neustart erhalten</li>
           </ul>
@@ -707,18 +746,18 @@ const elEmpty = document.getElementById("empty");
 
 // palette
 const palette = document.getElementById("palette");
-WALLS.forEach(w => {
+function addPaletteItem(wall, label, extraClass) {
   const c = document.createElement("div");
-  c.className = "wall-chip";
-  c.textContent = w;
+  c.className = "wall-chip" + (extraClass ? " " + extraClass : "");
+  c.textContent = label || wall;
   c.draggable = true;
   c.addEventListener("dragstart", e => {
-    e.dataTransfer.setData("new-wall", w);
+    e.dataTransfer.setData("new-wall", wall);
     e.dataTransfer.effectAllowed = "copy";
   });
-  // Klick = Wand hinten an die Timeline anhängen
+  // Klick = an die Timeline anhängen
   c.addEventListener("click", () => {
-    timeline.push({ id: uid++, wall: w, cues: 1 });
+    timeline.push({ id: uid++, wall: wall, cues: 1 });
     render();
     // zum neu eingefügten Block scrollen
     const blocks = elTimeline.querySelectorAll(".tl-block");
@@ -726,7 +765,13 @@ WALLS.forEach(w => {
     tutOnAction("addwall");
   });
   palette.appendChild(c);
-});
+}
+WALLS.forEach(w => addPaletteItem(w));
+// Sonder-Baustein: alle Wände in einem Schritt auf Cue 20
+addPaletteItem("ALL20", "ALLE · Cue 20", "wall-chip-all");
+
+// Sonder-Wand "ALLE Cue 20" als ein einzelner Trigger?
+function isAllStep(wall) { return wall === "ALL20"; }
 
 function flat() {
   const out = [];
@@ -747,7 +792,7 @@ function wallCueOffset(step) {
 // Globale (wandweite) Cue-Nummer für einen Step
 function globalCueNum(step) { return wallCueOffset(step) + step.cueIdx + 1; }
 
-function stepLabel(s) { return s.wall + " · Cue " + globalCueNum(s); }
+function stepLabel(s) { return isAllStep(s.wall) ? "ALLE · Cue 20" : s.wall + " · Cue " + globalCueNum(s); }
 
 function el(tag, cls, text) {
   const n = document.createElement(tag);
@@ -767,31 +812,37 @@ function render() {
   timeline.forEach((b, bi) => {
     const block = el("div", "tl-block");
     if (bi === activeBlock) block.classList.add("active");
+    const isAll = isAllStep(b.wall);
+    if (isAll) block.classList.add("tl-block-all");
 
     const head = el("div", "tl-head");
     const grip = el("span", "tl-grip", "⠿"); grip.title = "Reorder";
     const order = el("span", "tl-order", String(bi + 1));
-    const name = el("span", "tl-name", b.wall);
+    const name = el("span", "tl-name", isAll ? "ALLE" : b.wall);
     const spacer = el("span", "spacer");
 
-    // clean stepper
-    const cueSet = el("div", "cue-set");
-    const lbl = el("span", "cs-label", "Cues");
-    const stepper = el("div", "stepper");
-    const minus = el("button", "step-btn", "−");
-    const val = el("span", "step-val", String(b.cues));
-    const plus = el("button", "step-btn", "+");
-    minus.disabled = b.cues <= 1;
-    plus.disabled = b.cues >= MAX_CUES;
-    minus.addEventListener("click", () => changeCues(bi, -1));
-    plus.addEventListener("click", () => changeCues(bi, +1));
-    stepper.append(minus, val, plus);
-    cueSet.append(lbl, stepper);
+    head.append(grip, order, name, spacer);
+
+    // Cue-Stepper nur für normale Wände (ALLE ist ein fester Einzel-Trigger)
+    if (!isAll) {
+      const cueSet = el("div", "cue-set");
+      const lbl = el("span", "cs-label", "Cues");
+      const stepper = el("div", "stepper");
+      const minus = el("button", "step-btn", "−");
+      const val = el("span", "step-val", String(b.cues));
+      const plus = el("button", "step-btn", "+");
+      minus.disabled = b.cues <= 1;
+      plus.disabled = b.cues >= MAX_CUES;
+      minus.addEventListener("click", () => changeCues(bi, -1));
+      plus.addEventListener("click", () => changeCues(bi, +1));
+      stepper.append(minus, val, plus);
+      cueSet.append(lbl, stepper);
+      head.append(cueSet);
+    }
 
     const remove = el("button", "tl-remove", "✕"); remove.title = "Remove";
     remove.addEventListener("click", () => { timeline.splice(bi, 1); pos = -1; render(); });
-
-    head.append(grip, order, name, spacer, cueSet, remove);
+    head.append(remove);
     block.appendChild(head);
 
     // reorder via drag
@@ -806,7 +857,7 @@ function render() {
 
     for (let i = 0; i < b.cues; i++) {
       const globalIdx = steps.findIndex(s => s.blockIdx === bi && s.cueIdx === i);
-      const cue = el("div", "cue", "Cue " + globalCueNum(steps[globalIdx]));
+      const cue = el("div", "cue", isAll ? "Alle → Cue 20" : "Cue " + globalCueNum(steps[globalIdx]));
       if (globalIdx === pos) cue.classList.add("active");
       else if (pos >= 0 && globalIdx < pos) cue.classList.add("done");
       cue.addEventListener("click", () => navigate(globalIdx));
@@ -826,7 +877,7 @@ function render() {
 
   document.getElementById("nowCurrent").textContent = cur ? stepLabel(cur) : "–";
 
-  document.getElementById("btnBack").disabled = pos < 0;
+  document.getElementById("btnBack").disabled = pos <= 0;
   if (atEnd) {
     nextLbl.textContent = "ENDE";
     nextVal.textContent = "alles abgespielt";
@@ -884,6 +935,26 @@ document.getElementById("modalCancel").addEventListener("click", closeRestartMod
 document.getElementById("modal").addEventListener("click", e => {
   if (e.target.id === "modal") closeRestartModal();   // click backdrop to dismiss
 });
+
+// ---------- Timeline leeren ----------
+const clearModalEl = document.getElementById("clearModal");
+function openClearModal() { clearModalEl.hidden = false; }
+function closeClearModal() { clearModalEl.hidden = true; }
+document.getElementById("btnClear").addEventListener("click", () => {
+  if (timeline.length === 0) return;   // nichts zu leeren
+  openClearModal();
+});
+document.getElementById("clearCancel").addEventListener("click", closeClearModal);
+clearModalEl.addEventListener("click", e => { if (e.target.id === "clearModal") closeClearModal(); });
+document.getElementById("clearConfirm").addEventListener("click", () => {
+  timeline = [];
+  pos = -1;
+  uid = 1;
+  lastCompanionWall = null;
+  closeClearModal();
+  render();
+});
+
 // ---------- Hotkeys ----------
 const HK_DEFAULTS = { next: "ArrowRight", back: "ArrowLeft", load: "" };
 
@@ -949,8 +1020,14 @@ document.addEventListener("keydown", e => {
 
   if (e.target.tagName === "INPUT") return;
   const helpOpen = !document.getElementById("help").hidden;
+  const clearOpen = !clearModalEl.hidden;
   if (helpOpen) { if (e.key === "Escape") helpEl.hidden = true; return; }
   if (settingsOpen) { if (e.key === "Escape") document.getElementById("setClose").click(); return; }
+  if (clearOpen) {
+    if (e.key === "Escape") closeClearModal();
+    if (e.key === "Enter") document.getElementById("clearConfirm").click();
+    return;
+  }
   if (restartOpen) {
     if (e.key === "Escape") closeRestartModal();
     if (e.key === "Enter") document.getElementById("modalConfirm").click();
@@ -1034,6 +1111,7 @@ const COMPANION = {
   wallBank: { W1:25, W2:26, W3:27, W4:28, W5:29, W6:30, W7:31, W8:32 },
   cueBank:  { 1:10, 2:11, 3:12, 4:13, 5:14, 6:18, 7:19, 8:20, 9:21, 10:22 },
   nextBank: 24,
+  allCue20Bank: 23,   // "ALLE CUE 20" – fährt W1–W8 in einem Druck auf Cue 20
 };
 // combined walls trigger on the first wall of the pair
 function companionWall(w) { return w === "W12" ? "W1" : w === "W34" ? "W3" : w; }
@@ -1087,17 +1165,23 @@ async function applyTarget(step, prev) {
   const cfg = getCfg();
   if (!cfg.ip) { setConn(false, "keine IP (Settings)"); toast("Keine IP – bitte in den Settings (⚙) eintragen", "err"); return; }
 
-  const wall = companionWall(step.wall);
-  const wallChanged = lastCompanionWall !== wall;
-  const c = globalCueNum(step);                             // wandweit durchgezählter Cue
-
   const banks = [];
-  if (wallChanged) banks.push(COMPANION.wallBank[wall]);    // Wand wählen, falls gewechselt
-  if (c <= 10) {
-    banks.push(COMPANION.cueBank[c]);                       // absoluter Sprung auf Cue
+  if (isAllStep(step.wall)) {
+    // ALLE Cue 20: ein einziger Druck fährt W1–W8 auf Cue 20
+    banks.push(COMPANION.allCue20Bank);
+    lastCompanionWall = null;   // danach Wand neu anwählen
   } else {
-    banks.push(COMPANION.cueBank[10]);                      // auf Cue 10 …
-    for (let i = 0; i < c - 10; i++) banks.push(COMPANION.nextBank); // … dann weitersteppen
+    const wall = companionWall(step.wall);
+    const wallChanged = lastCompanionWall !== wall;
+    const c = globalCueNum(step);                           // wandweit durchgezählter Cue
+    if (wallChanged) banks.push(COMPANION.wallBank[wall]);  // Wand wählen, falls gewechselt
+    if (c <= 10) {
+      banks.push(COMPANION.cueBank[c]);                     // absoluter Sprung auf Cue
+    } else {
+      banks.push(COMPANION.cueBank[10]);                    // auf Cue 10 …
+      for (let i = 0; i < c - 10; i++) banks.push(COMPANION.nextBank); // … dann weitersteppen
+    }
+    lastCompanionWall = wall;
   }
 
   let ok = true;
@@ -1109,7 +1193,6 @@ async function applyTarget(step, prev) {
     detail = r.ok ? ("HTTP " + r.status) : (r.error || ("HTTP " + r.status));
     await sleep(120);
   }
-  lastCompanionWall = wall;
   setConn(ok, ok ? "verbunden" : "keine Antwort");
   if (!ok) toast("✗ " + stepLabel(step) + "  (" + detail + ")", "err");
 }
@@ -1140,6 +1223,7 @@ async function doLoad() {
   const banks = [16];                       // Speicher-Preset aller Playlists
   const seen = new Set();
   for (const b of timeline) {
+    if (isAllStep(b.wall)) continue;        // ALLE-Cue-20 braucht kein Vorladen
     const w = companionWall(b.wall);
     if (!seen.has(w)) { seen.add(w); banks.push(COMPANION.wallBank[w]); } // jede Wand auf Stand
   }
