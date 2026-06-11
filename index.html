@@ -321,6 +321,8 @@
     border: 1px solid var(--line); border-radius: 10px;
   }
   .set-row input:focus { outline: none; border-color: var(--rtl-cyan); }
+  .set-check input { flex: 0 0 auto; width: 20px; height: 20px; }
+  .set-check span { font-size: 13px; color: var(--muted); }
   .set-hint { font-size: 12.5px; color: var(--muted); margin: 4px 0 14px; line-height: 1.5; }
   .set-test { padding: 10px 16px; font-size: 14px; }
   .set-teststatus { margin-left: 12px; font-size: 14px; }
@@ -428,9 +430,14 @@
         </div>
         <div class="set-row">
           <label for="setPort">Port</label>
-          <input id="setPort" type="text" inputmode="numeric" placeholder="80" />
+          <input id="setPort" type="text" inputmode="numeric" placeholder="leer = 443/80" />
         </div>
-        <div class="set-hint">Dieselbe Adresse wie die Companion-Oberfläche im Browser. Steht dort kein Port, ist es Port&nbsp;80. Bei Regie-Wechsel hier anpassen.</div>
+        <div class="set-row set-check">
+          <label for="setHttps">HTTPS</label>
+          <input id="setHttps" type="checkbox" />
+          <span>verschlüsselt + selbstsigniertes Zertifikat akzeptieren</span>
+        </div>
+        <div class="set-hint">Dieselbe Adresse wie die Companion-Oberfläche im Browser. Zeigt der Browser ein (rotes) Schloss / „https", dann HTTPS anhaken und Port leer lassen. Bei Regie-Wechsel hier anpassen.</div>
         <button class="btn set-test" id="btnTest">Verbindung testen</button>
         <span class="set-teststatus" id="testStatus"></span>
       </div>
@@ -685,10 +692,12 @@ function toast(msg, kind) {
 }
 
 function getCfg() {
-  try { return JSON.parse(localStorage.getItem("wp_cfg")) || { ip: "", port: "80" }; }
-  catch (e) { return { ip: "", port: "80" }; }
+  try { return JSON.parse(localStorage.getItem("wp_cfg")) || { ip: "", port: "", https: false }; }
+  catch (e) { return { ip: "", port: "", https: false }; }
 }
 function setCfg(c) { localStorage.setItem("wp_cfg", JSON.stringify(c)); }
+// connection args passed to the main process
+function connArgs() { const c = getCfg(); return { ip: c.ip, port: c.port, https: !!c.https }; }
 
 function setConn(ok, msg) {
   const dot = document.getElementById("connDot");
@@ -722,8 +731,9 @@ async function applyTarget(step, prev) {
 
   let ok = true;
   let detail = "";
+  const ca = connArgs();
   for (const bank of banks) {
-    const r = await window.wp.press({ ip: cfg.ip, port: cfg.port || "80", page: COMPANION.page, bank });
+    const r = await window.wp.press({ ...ca, page: COMPANION.page, bank });
     ok = ok && r.ok;
     detail = r.ok ? ("HTTP " + r.status) : (r.error || ("HTTP " + r.status));
     await sleep(120);
@@ -748,7 +758,7 @@ document.getElementById("btnLoadAll").addEventListener("click", async () => {
   const cfg = getCfg();
   if (!cfg.ip) { toast("Keine IP – bitte in den Settings eintragen", "err"); return; }
   toast("LOAD ALL …");
-  const r = await window.wp.press({ ip: cfg.ip, port: cfg.port || "80", page: 65, bank: 16 });
+  const r = await window.wp.press({ ...connArgs(), page: 65, bank: 16 });
   lastCompanionWall = null;
   setConn(r.ok, r.ok ? "verbunden" : "keine Antwort");
   toast(r.ok ? "✓ LOAD ALL gesendet (HTTP " + r.status + ")" : "✗ LOAD ALL: " + (r.error || ("HTTP " + r.status)), r.ok ? "ok" : "err");
@@ -759,15 +769,17 @@ const settingsEl = document.getElementById("settings");
 function openSettings() {
   const cfg = getCfg();
   document.getElementById("setIp").value = cfg.ip || "";
-  document.getElementById("setPort").value = cfg.port || "80";
+  document.getElementById("setPort").value = cfg.port || "";
+  document.getElementById("setHttps").checked = !!cfg.https;
   document.getElementById("testStatus").textContent = "";
   document.getElementById("testStatus").className = "set-teststatus";
   settingsEl.hidden = false;
 }
 function saveSettings() {
   const ip = document.getElementById("setIp").value.trim();
-  const port = document.getElementById("setPort").value.trim() || "80";
-  setCfg({ ip, port });
+  const port = document.getElementById("setPort").value.trim();
+  const https = document.getElementById("setHttps").checked;
+  setCfg({ ip, port, https });
   lastCompanionWall = null;
   setConn(false, ip ? "konfiguriert (" + ip + ")" : "keine IP");
 }
@@ -782,7 +794,7 @@ document.getElementById("btnTest").addEventListener("click", async () => {
   if (!window.wp) { st.className = "set-teststatus err"; st.textContent = "Test nur in der App möglich"; return; }
   if (!cfg.ip) { st.className = "set-teststatus err"; st.textContent = "Bitte IP eingeben"; return; }
   st.className = "set-teststatus"; st.textContent = "teste …";
-  const r = await window.wp.ping({ ip: cfg.ip, port: cfg.port || "80" });
+  const r = await window.wp.ping(connArgs());
   if (r.ok) { st.className = "set-teststatus ok"; st.textContent = "✓ erreichbar"; setConn(true, "verbunden"); }
   else { st.className = "set-teststatus err"; st.textContent = "✗ nicht erreichbar (" + (r.error || "Fehler") + ")"; setConn(false, "nicht erreichbar"); }
 });

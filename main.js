@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, Notification } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const path = require("path");
 const http = require("http");
+const https = require("https");
 
 let win = null;
 
@@ -36,29 +37,30 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-// ---------- Companion HTTP (from main process → no CORS) ----------
-ipcMain.handle("companion:press", async (_e, { ip, port, page, bank }) => {
+// ---------- Companion HTTP/HTTPS (from main process → no CORS) ----------
+function companionGet({ ip, port, https: useHttps, path: reqPath }) {
   return new Promise((resolve) => {
-    const url = `http://${ip}:${port}/press/bank/${page}/${bank}`;
-    const req = http.get(url, (res) => {
+    const mod = useHttps ? https : http;
+    const options = {
+      host: ip,
+      port: port || (useHttps ? 443 : 80),
+      path: reqPath,
+      rejectUnauthorized: false, // accept self-signed / internal certificates
+    };
+    const req = mod.get(options, (res) => {
       res.resume();
       resolve({ ok: res.statusCode >= 200 && res.statusCode < 400, status: res.statusCode });
     });
     req.on("error", (err) => resolve({ ok: false, error: err.message }));
     req.setTimeout(2500, () => { req.destroy(); resolve({ ok: false, error: "timeout" }); });
   });
-});
+}
 
-ipcMain.handle("companion:ping", async (_e, { ip, port }) => {
-  return new Promise((resolve) => {
-    const req = http.get(`http://${ip}:${port}/`, (res) => {
-      res.resume();
-      resolve({ ok: true, status: res.statusCode });
-    });
-    req.on("error", (err) => resolve({ ok: false, error: err.message }));
-    req.setTimeout(2500, () => { req.destroy(); resolve({ ok: false, error: "timeout" }); });
-  });
-});
+ipcMain.handle("companion:press", async (_e, a) =>
+  companionGet({ ...a, path: `/press/bank/${a.page}/${a.bank}` }));
+
+ipcMain.handle("companion:ping", async (_e, a) =>
+  companionGet({ ...a, path: "/" }));
 
 // ---------- Auto-update ----------
 autoUpdater.autoDownload = true;
