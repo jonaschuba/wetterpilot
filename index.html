@@ -265,6 +265,8 @@
   }
   .cue:hover { color: var(--text); border-color: var(--faint); }
   .cue.done { color: var(--text); background: var(--panel-3); border-color: transparent; }
+  .cue.stand { border-style: dashed; color: var(--faint); }
+  .cue.stand.active { color: #fff; border-style: solid; }
   .cue.active {
     background: var(--live); border-color: var(--live); color: #fff;
   }
@@ -495,10 +497,12 @@ WALLS.forEach(w => {
 function flat() {
   const out = [];
   timeline.forEach((b, bi) => {
+    out.push({ blockIdx: bi, wall: b.wall, stand: true });          // Stand zuerst
     for (let i = 0; i < b.cues; i++) out.push({ blockIdx: bi, wall: b.wall, cueIdx: i });
   });
   return out;
 }
+function stepLabel(s) { return s.stand ? (s.wall + " · Stand") : (s.wall + " · Cue " + (s.cueIdx + 1)); }
 
 function el(tag, cls, text) {
   const n = document.createElement(tag);
@@ -553,11 +557,20 @@ function render() {
     block.addEventListener("dragend", () => { block.draggable = false; });
 
     const row = el("div", "cue-row");
+
+    // Stand-Chip zuerst
+    const standChip = el("div", "cue stand", "Stand");
+    const standIdx = steps.findIndex(s => s.blockIdx === bi && s.stand);
+    if (standIdx === pos) standChip.classList.add("active");
+    else if (pos >= 0 && standIdx < pos) standChip.classList.add("done");
+    standChip.addEventListener("click", () => navigate(standIdx));
+    row.appendChild(standChip);
+
     for (let i = 0; i < b.cues; i++) {
       const cue = el("div", "cue", "Cue " + (i + 1));
       const globalIdx = steps.findIndex(s => s.blockIdx === bi && s.cueIdx === i);
       if (globalIdx === pos) cue.classList.add("active");
-      else if (globalIdx < pos) cue.classList.add("done");
+      else if (pos >= 0 && globalIdx < pos) cue.classList.add("done");
       cue.addEventListener("click", () => navigate(globalIdx));
       row.appendChild(cue);
     }
@@ -573,7 +586,7 @@ function render() {
   const nextLbl = document.getElementById("nextLbl");
   const nextVal = document.getElementById("nextVal");
 
-  document.getElementById("nowCurrent").textContent = cur ? (cur.wall + " · Cue " + (cur.cueIdx + 1)) : "–";
+  document.getElementById("nowCurrent").textContent = cur ? stepLabel(cur) : "–";
 
   document.getElementById("btnBack").disabled = pos < 0;
   btnNext.classList.remove("restart");
@@ -584,7 +597,7 @@ function render() {
     btnNext.disabled = false;
   } else {
     nextLbl.textContent = "NEXT ▶";
-    nextVal.textContent = nxt ? (nxt.wall + " · Cue " + (nxt.cueIdx + 1)) : "–";
+    nextVal.textContent = nxt ? stepLabel(nxt) : "–";
     btnNext.disabled = steps.length === 0;
   }
 
@@ -704,7 +717,7 @@ function setConn(ok, msg) {
   const txt = document.getElementById("connText");
   dot.classList.toggle("ok", !!ok);
   dot.classList.toggle("off", !ok);
-  txt.textContent = "Companion: " + (msg || (ok ? "verbunden" : "nicht verbunden"));
+  txt.textContent = ok ? ("Verbunden mit " + (getCfg().ip || "")) : ("Companion: " + (msg || "nicht verbunden"));
 }
 
 let lastCompanionWall = null;
@@ -717,16 +730,21 @@ async function applyTarget(step, prev) {
   if (!cfg.ip) { setConn(false, "keine IP (Settings)"); toast("Keine IP – bitte in den Settings (⚙) eintragen", "err"); return; }
 
   const wall = companionWall(step.wall);
-  const wallChanged = lastCompanionWall !== wall || !prev || companionWall(prev.wall) !== wall;
-  const c = step.cueIdx + 1;                   // 1-based cue
+  const wallChanged = lastCompanionWall !== wall;
 
   const banks = [];
-  if (wallChanged) banks.push(COMPANION.wallBank[wall]);   // select that wall's playlist
-  if (c <= 10) {
-    banks.push(COMPANION.cueBank[c]);                      // absolute jump to cue
+  if (step.stand) {
+    // nur Playlist wählen → landet auf 0.1 = Stand (kein Cue abspielen)
+    banks.push(COMPANION.wallBank[wall]);
   } else {
-    banks.push(COMPANION.cueBank[10]);                     // jump to cue 10 …
-    for (let i = 0; i < c - 10; i++) banks.push(COMPANION.nextBank); // … then step forward
+    const c = step.cueIdx + 1;                              // 1-based cue
+    if (wallChanged) banks.push(COMPANION.wallBank[wall]);  // Wand wählen, falls gewechselt
+    if (c <= 10) {
+      banks.push(COMPANION.cueBank[c]);                     // absoluter Sprung auf Cue
+    } else {
+      banks.push(COMPANION.cueBank[10]);                    // auf Cue 10 …
+      for (let i = 0; i < c - 10; i++) banks.push(COMPANION.nextBank); // … dann weitersteppen
+    }
   }
 
   let ok = true;
@@ -740,7 +758,7 @@ async function applyTarget(step, prev) {
   }
   lastCompanionWall = wall;
   setConn(ok, ok ? "verbunden" : "keine Antwort");
-  toast((ok ? "✓ " : "✗ ") + step.wall + " · Cue " + c + "  (" + detail + ")", ok ? "ok" : "err");
+  toast((ok ? "✓ " : "✗ ") + stepLabel(step) + "  (" + detail + ")", ok ? "ok" : "err");
 }
 
 // central navigation: change position, redraw, fire Companion
@@ -781,8 +799,18 @@ function saveSettings() {
   const https = document.getElementById("setHttps").checked;
   setCfg({ ip, port, https });
   lastCompanionWall = null;
-  setConn(false, ip ? "konfiguriert (" + ip + ")" : "keine IP");
+  // grüne "Verbunden"-Anzeige nach erfolgreichem Test nicht überschreiben;
+  // nur zurücksetzen, wenn gar keine IP gesetzt ist
+  if (!ip) setConn(false, "keine IP (Settings)");
 }
+// HTTPS-Schalter füllt den Port automatisch mit 443 (bzw. leert 443 wieder)
+document.getElementById("setHttps").addEventListener("change", (e) => {
+  const portEl = document.getElementById("setPort");
+  const v = portEl.value.trim();
+  if (e.target.checked) { if (v === "" || v === "80") portEl.value = "443"; }
+  else { if (v === "443") portEl.value = ""; }
+});
+
 document.getElementById("btnSettings").addEventListener("click", openSettings);
 document.getElementById("setClose").addEventListener("click", () => { saveSettings(); settingsEl.hidden = true; });
 settingsEl.addEventListener("click", e => { if (e.target.id === "settings") { saveSettings(); settingsEl.hidden = true; } });
