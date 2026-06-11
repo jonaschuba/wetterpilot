@@ -63,7 +63,7 @@
     border-bottom: 1px solid var(--line);
     flex: 0 0 auto;
   }
-  header .logo { height: 26px; width: auto; display: block; }
+  header .logo { height: 26px; width: auto; display: block; overflow: visible; flex-shrink: 0; }
   header .title {
     font-size: 24px;
     font-weight: 700;
@@ -199,7 +199,11 @@
   .btn-next.confirm .nx-val { color: rgba(255,255,255,.9); }
 
   /* ---------- Timeline ---------- */
-  .timeline-wrap { flex: 1; overflow-y: auto; padding: 20px; }
+  .timeline-wrap { flex: 1; overflow-y: auto; padding: 20px; scrollbar-width: thin; scrollbar-color: var(--panel-3) transparent; }
+  .timeline-wrap::-webkit-scrollbar { width: 6px; }
+  .timeline-wrap::-webkit-scrollbar-track { background: transparent; }
+  .timeline-wrap::-webkit-scrollbar-thumb { background: var(--panel-3); border-radius: 3px; }
+  .timeline-wrap::-webkit-scrollbar-thumb:hover { background: var(--faint); }
   .timeline-empty {
     height: 100%; display: flex; align-items: center; justify-content: center;
     color: var(--muted); font-size: 15px; text-align: center;
@@ -377,6 +381,25 @@
   }
   .hk-reset:hover { color: var(--text); }
 
+  /* ---------- help modal ---------- */
+  .modal-help { width: min(760px, 94vw); max-height: 88vh; overflow-y: auto;
+    scrollbar-width: thin; scrollbar-color: var(--panel-3) transparent; }
+  .modal-help::-webkit-scrollbar { width: 6px; }
+  .modal-help::-webkit-scrollbar-thumb { background: var(--panel-3); border-radius: 3px; }
+  .help-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .help-section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.3px; color: var(--muted); font-weight: 700; margin-bottom: 10px; }
+  .help-steps { list-style: none; padding: 0; }
+  .help-steps li { display: flex; gap: 12px; margin-bottom: 12px; font-size: 14px; color: var(--text); line-height: 1.55; counter-increment: step; }
+  .help-steps { counter-reset: step; }
+  .help-steps li::before { content: counter(step); flex: 0 0 24px; height: 24px; border-radius: 6px; background: var(--rtl-blue); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+  .help-list { list-style: none; padding: 0; }
+  .help-list li { font-size: 13.5px; color: var(--muted); padding: 5px 0; border-bottom: 1px solid var(--line); line-height: 1.5; }
+  .help-list li:last-child { border-bottom: none; }
+  .help-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+  .help-table td { padding: 7px 0; font-size: 14px; color: var(--text); border-bottom: 1px solid var(--line); }
+  .help-table tr:last-child td { border-bottom: none; }
+  .help-key { display: inline-block; background: var(--panel-3); border: 1px solid var(--faint); border-radius: 5px; padding: 2px 9px; font-size: 13px; font-weight: 700; font-family: monospace; color: var(--text); }
+
   /* ---------- load all + toast ---------- */
   .btn-loadall {
     flex: 0 0 110px;
@@ -420,6 +443,7 @@
     <div class="title">Wetter<span>Pilot</span></div>
     <div class="spacer"></div>
     <div class="conn" id="conn"><span class="dot" id="connDot"></span> <span id="connText">Companion: not configured</span></div>
+    <button class="icon-btn" id="btnHelp" title="Hilfe">?</button>
     <button class="icon-btn" id="btnSettings" title="Settings">⚙</button>
   </header>
 
@@ -533,6 +557,59 @@
     </div>
   </div>
 
+  <!-- Help modal -->
+  <div class="modal-overlay" id="help" hidden>
+    <div class="modal modal-help" role="dialog" aria-modal="true">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div class="modal-title">Bedienung</div>
+        <button class="btn" id="helpClose" style="padding:8px 16px;font-size:14px;">✕</button>
+      </div>
+
+      <div class="help-cols">
+        <div>
+          <div class="help-section-title">Ablauf pro Sendung</div>
+          <ol class="help-steps">
+            <li><strong>Timeline bauen</strong> — Links auf eine Wand klicken (oder drag &amp; drop). Mit + / − die Cue-Anzahl einstellen. Reihenfolge per ⠿ verschieben.</li>
+            <li><strong>LOAD drücken</strong> — Legt alle Wände auf Stand vor. Kein Video startet noch.</li>
+            <li><strong>NEXT drücken</strong> — Springt zum nächsten Cue und triggert Companion. Darunter steht, was als nächstes kommt.</li>
+            <li><strong>RELOAD</strong> — Am Ende wird LOAD zu RELOAD. Bestätigung → zurück zum Anfang.</li>
+          </ol>
+
+          <div class="help-section-title" style="margin-top:18px;">Hinweise</div>
+          <ul class="help-list">
+            <li>Cue direkt anklicken für manuellen Sprung</li>
+            <li>Gleiche Wand mehrfach → Cues zählen weiter (W1 C1, C2 → W5 → W1 C3, C4)</li>
+            <li>W12 → steuert W1 · W34 → steuert W3</li>
+            <li>Timeline bleibt nach Neustart erhalten</li>
+          </ul>
+        </div>
+
+        <div>
+          <div class="help-section-title">Tastenkürzel</div>
+          <table class="help-table">
+            <tr><td><span class="help-key">→</span></td><td>NEXT (Standard)</td></tr>
+            <tr><td><span class="help-key">←</span></td><td>Back (Standard)</td></tr>
+            <tr><td><span class="help-key">Esc</span></td><td>Dialog schließen</td></tr>
+          </table>
+          <div style="font-size:12px;color:var(--muted);margin-top:6px;">Tasten anpassbar unter ⚙ → Hotkeys</div>
+
+          <div class="help-section-title" style="margin-top:18px;">Verbindung</div>
+          <ul class="help-list">
+            <li>IP/Port unter ⚙ eintragen</li>
+            <li>HTTPS anhaken wenn Browser rotes Schloss zeigt → Port wird automatisch 443</li>
+            <li>„Verbindung testen" → grüner Punkt oben rechts</li>
+          </ul>
+
+          <div class="help-section-title" style="margin-top:18px;">Updates</div>
+          <ul class="help-list">
+            <li>App sucht beim Start automatisch nach Updates</li>
+            <li>Bei Update: Windows-Benachrichtigung + Button in ⚙</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast" hidden></div>
 
   <footer>WetterPilot · <span id="footVersion"></span></footer>
@@ -565,6 +642,9 @@ WALLS.forEach(w => {
   c.addEventListener("click", () => {
     timeline.push({ id: uid++, wall: w, cues: 1 });
     render();
+    // zum neu eingefügten Block scrollen
+    const blocks = elTimeline.querySelectorAll(".tl-block");
+    if (blocks.length) blocks[blocks.length - 1].scrollIntoView({ block: "nearest", behavior: "smooth" });
   });
   palette.appendChild(c);
 });
@@ -685,9 +765,9 @@ function render() {
     btnLoad.classList.toggle("is-reload", pos >= 0);
   }
 
-  // keep the active cue in view (only scrolls if it's off-screen)
-  const activeCue = elTimeline.querySelector(".cue.active");
-  if (activeCue) activeCue.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  // keep the active block in view
+  const activeBlock = elTimeline.querySelector(".tl-block.active");
+  if (activeBlock) activeBlock.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
 
 function changeCues(bi, delta) {
@@ -781,6 +861,8 @@ document.addEventListener("keydown", e => {
   }
 
   if (e.target.tagName === "INPUT") return;
+  const helpOpen = !document.getElementById("help").hidden;
+  if (helpOpen) { if (e.key === "Escape") helpEl.hidden = true; return; }
   if (settingsOpen) { if (e.key === "Escape") document.getElementById("setClose").click(); return; }
   if (restartOpen) {
     if (e.key === "Escape") closeRestartModal();
@@ -843,6 +925,10 @@ elTimeline.addEventListener("drop", e => {
 
   if (newWall) {
     timeline.splice(insertAt, 0, { id: uid++, wall: newWall, cues: 1 });
+    render();
+    const blocks = elTimeline.querySelectorAll(".tl-block");
+    if (blocks[insertAt]) blocks[insertAt].scrollIntoView({ block: "nearest", behavior: "smooth" });
+    return;
   } else if (moveIdx !== "") {
     const from = parseInt(moveIdx);
     const [item] = timeline.splice(from, 1);
@@ -1022,6 +1108,12 @@ document.getElementById("setHttps").addEventListener("change", (e) => {
   if (e.target.checked) { if (v === "" || v === "80") portEl.value = "443"; }
   else { if (v === "443") portEl.value = ""; }
 });
+
+// ---------- Help modal ----------
+const helpEl = document.getElementById("help");
+document.getElementById("btnHelp").addEventListener("click", () => { helpEl.hidden = false; });
+document.getElementById("helpClose").addEventListener("click", () => { helpEl.hidden = true; });
+helpEl.addEventListener("click", e => { if (e.target.id === "help") helpEl.hidden = true; });
 
 document.getElementById("btnSettings").addEventListener("click", openSettings);
 document.getElementById("setClose").addEventListener("click", () => { stopListening(); saveSettings(); settingsEl.hidden = true; });
