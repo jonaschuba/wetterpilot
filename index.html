@@ -334,6 +334,24 @@
   .btn-accent { background: var(--rtl-blue); border-color: var(--rtl-blue); color: #fff; }
   .btn-accent:hover { filter: brightness(1.1); background: var(--rtl-blue); }
 
+  /* ---------- load all + toast ---------- */
+  .btn-loadall {
+    flex: 0 0 110px; font-size: 20px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  }
+  .btn-loadall .la-txt { font-size: 12px; letter-spacing: 1px; color: var(--muted); }
+  .toast {
+    position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+    z-index: 200; max-width: 80vw;
+    background: var(--panel-3); border: 1px solid var(--line);
+    color: var(--text); font-size: 15px; font-weight: 700;
+    padding: 12px 20px; border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
+  }
+  .toast[hidden] { display: none; }
+  .toast.ok { border-color: var(--rtl-cyan); }
+  .toast.err { border-color: var(--live); }
+
   /* ---------- narrow / half screen ---------- */
   @media (max-width: 880px) {
     main { grid-template-columns: 1fr; }
@@ -378,6 +396,7 @@
           <span class="nx-val" id="nextVal">–</span>
         </button>
         <button class="btn btn-back" id="btnBack">◀ Back</button>
+        <button class="btn btn-loadall" id="btnLoadAll" title="Vor dem Start einmal drücken – lädt alle Cues vor">⤓<span class="la-txt">LOAD ALL</span></button>
       </div>
 
       <div class="timeline-wrap" id="timeline">
@@ -434,6 +453,8 @@
       </div>
     </div>
   </div>
+
+  <div class="toast" id="toast" hidden></div>
 
   <footer>WetterPilot · <span id="footVersion"></span></footer>
 
@@ -653,6 +674,16 @@ function companionWall(w) { return w === "W12" ? "W1" : w === "W34" ? "W3" : w; 
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+let toastTimer = null;
+function toast(msg, kind) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "toast " + (kind || "");
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, 2800);
+}
+
 function getCfg() {
   try { return JSON.parse(localStorage.getItem("wp_cfg")) || { ip: "", port: "80" }; }
   catch (e) { return { ip: "", port: "80" }; }
@@ -689,13 +720,16 @@ async function applyTarget(step, prev) {
   }
 
   let ok = true;
+  let detail = "";
   for (const bank of banks) {
     const r = await window.wp.press({ ip: cfg.ip, port: cfg.port || "80", page: COMPANION.page, bank });
     ok = ok && r.ok;
+    detail = r.ok ? ("HTTP " + r.status) : (r.error || ("HTTP " + r.status));
     await sleep(120);
   }
   lastCompanionWall = wall;
   setConn(ok, ok ? "verbunden" : "keine Antwort");
+  toast((ok ? "✓ " : "✗ ") + step.wall + " · Cue " + c + "  (" + detail + ")", ok ? "ok" : "err");
 }
 
 // central navigation: change position, redraw, fire Companion
@@ -706,6 +740,18 @@ function navigate(newPos) {
   render();
   applyTarget(flat()[pos], prev);
 }
+
+// ---------- LOAD ALL (preload all cues – page 65 / bank 16) ----------
+document.getElementById("btnLoadAll").addEventListener("click", async () => {
+  if (!window.wp) { toast("Nur in der App möglich", "err"); return; }
+  const cfg = getCfg();
+  if (!cfg.ip) { toast("Keine IP – bitte in den Settings eintragen", "err"); return; }
+  toast("LOAD ALL …");
+  const r = await window.wp.press({ ip: cfg.ip, port: cfg.port || "80", page: 65, bank: 16 });
+  lastCompanionWall = null;
+  setConn(r.ok, r.ok ? "verbunden" : "keine Antwort");
+  toast(r.ok ? "✓ LOAD ALL gesendet (HTTP " + r.status + ")" : "✗ LOAD ALL: " + (r.error || ("HTTP " + r.status)), r.ok ? "ok" : "err");
+});
 
 // ---------- Settings modal ----------
 const settingsEl = document.getElementById("settings");
