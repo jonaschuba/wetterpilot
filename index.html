@@ -534,6 +534,7 @@
     <div class="title">Wetter<span>Pilot</span></div>
     <div class="spacer"></div>
     <div class="conn" id="conn"><span class="dot" id="connDot"></span> <span id="connText">Companion: not configured</span></div>
+    <button class="btn-regie" id="btnWetterAZ" title="Wetter AZ – Companion 20.14">Wetter AZ</button>
     <button class="btn-regie" id="btnRegie" title="Picturall-Webseite im Browser öffnen">↗ Picturall</button>
     <button class="icon-btn" id="btnHelp" title="Hilfe">?</button>
     <button class="icon-btn" id="btnSettings" title="Settings">⚙</button>
@@ -1365,6 +1366,12 @@ const REGIE_URL = "http://webapp:8084/regie/?";
 document.getElementById("btnRegie").addEventListener("click", () => {
   if (window.wp && window.wp.openExternal) window.wp.openExternal(REGIE_URL);
   else window.open(REGIE_URL, "_blank");
+});
+
+document.getElementById("btnWetterAZ").addEventListener("click", async () => {
+  if (!window.wp) return;
+  const a = connArgs();
+  await window.wp.press({ ...a, page: 20, bank: 14 });
 });
 
 document.getElementById("btnSettings").addEventListener("click", openSettings);
