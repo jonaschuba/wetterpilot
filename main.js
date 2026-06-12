@@ -8,10 +8,10 @@ let win = null;
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1320,
-    height: 880,
+    width: 1400,
+    height: 980,
     minWidth: 900,
-    minHeight: 600,
+    minHeight: 700,
     backgroundColor: "#0d0f12",
     autoHideMenuBar: true,
     webPreferences: {

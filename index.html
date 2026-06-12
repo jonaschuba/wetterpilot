@@ -257,6 +257,20 @@
     min-width: 34px; display: flex; align-items: center; justify-content: center;
     font-size: 18px; font-weight: 700;
   }
+  /* start-cue override */
+  .sc-row { display: inline-flex; align-items: center; gap: 8px; }
+  .sc-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
+  .sc-input {
+    width: 62px; height: 42px; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 10px; color: var(--text); font-family: inherit; font-size: 15px; font-weight: 700;
+    text-align: center; padding: 0 6px; -moz-appearance: textfield;
+  }
+  .sc-input::-webkit-inner-spin-button,
+  .sc-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .sc-input::placeholder { color: var(--faint); font-weight: 400; font-size: 13px; }
+  .sc-input:focus { outline: none; border-color: var(--faint); }
+  .sc-input.is-set { border-color: var(--rtl-blue); color: var(--rtl-blue); }
+
   .tl-remove {
     background: transparent; border: none; color: var(--faint);
     cursor: pointer; font-size: 20px; padding: 6px 10px; border-radius: 8px;
@@ -806,7 +820,12 @@ function wallCueOffset(step) {
   return offset;
 }
 // Globale (wandweite) Cue-Nummer für einen Step
-function globalCueNum(step) { return wallCueOffset(step) + step.cueIdx + 1; }
+// Wenn der Block ein manuelles startCue hat, wird dieses statt der Auto-Berechnung genutzt
+function globalCueNum(step) {
+  const b = timeline[step.blockIdx];
+  if (b && b.startCue != null) return b.startCue + step.cueIdx;
+  return wallCueOffset(step) + step.cueIdx + 1;
+}
 
 function stepLabel(s) { return isSpecial(s.wall) ? (SPECIAL[s.wall].name + " · " + SPECIAL[s.wall].sub) : s.wall + " · Cue " + globalCueNum(s); }
 
@@ -854,6 +873,28 @@ function render() {
       stepper.append(minus, val, plus);
       cueSet.append(lbl, stepper);
       head.append(cueSet);
+
+      // Start-Cue Override
+      const scRow = el("div", "sc-row");
+      const scLbl = el("span", "sc-label", "Start");
+      const scInput = document.createElement("input");
+      scInput.type = "number";
+      scInput.className = "sc-input";
+      scInput.min = "1";
+      scInput.placeholder = "auto";
+      if (b.startCue != null) { scInput.value = String(b.startCue); scInput.classList.add("is-set"); }
+      scInput.addEventListener("change", () => {
+        const v = parseInt(scInput.value, 10);
+        if (!isNaN(v) && v >= 1) { timeline[bi].startCue = v; }
+        else { timeline[bi].startCue = null; scInput.value = ""; }
+        render();
+      });
+      scInput.addEventListener("input", () => {
+        scInput.classList.toggle("is-set", scInput.value.trim() !== "");
+      });
+      scInput.addEventListener("keydown", e => { if (e.key === "Enter") scInput.blur(); });
+      scRow.append(scLbl, scInput);
+      head.append(scRow);
     }
 
     const remove = el("button", "tl-remove", "✕"); remove.title = "Remove";
