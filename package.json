@@ -1,6 +1,6 @@
 {
   "name": "wetterpilot",
-  "version": "1.0.30",
+  "version": "1.0.31",
   "description": "WetterPilot – Steuerung der Studio-Wetterwände über die Companion HTTP API",
   "author": "Jonas Schuba",
   "license": "UNLICENSED",
@@ -21,14 +21,17 @@
     ],
     "win": {
       "target": "nsis",
-      "artifactName": "WetterPilot-Setup-${version}.${ext}"
+      "artifactName": "WetterPilot-Setup-${version}.${ext}",
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": true,
       "perMachine": false,
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
     },
     "publish": {
       "provider": "github",

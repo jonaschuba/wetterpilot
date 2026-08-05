@@ -34,6 +34,7 @@
     /* RTL brand */
     --rtl-red: #fa002e;
     --rtl-blue: #0036f2;
+    --rtl-cyan: #00acf2;   /* helles Blau aus dem Logo (mittlerer Block) */
     /* roles — colour is used sparingly */
     --live: var(--rtl-red);   /* on air / active cue / NEXT only */
     --radius: 14px;
@@ -69,7 +70,7 @@
     font-weight: 700;
     letter-spacing: .2px;
   }
-  header .title span { color: var(--rtl-blue); }
+  header .title span { color: var(--rtl-cyan); }
   header .spacer { flex: 1; }
   .conn {
     display: flex; align-items: center; gap: 9px;
@@ -416,6 +417,13 @@
   .help-table td { padding: 7px 0; font-size: 14px; color: var(--text); border-bottom: 1px solid var(--line); }
   .help-table tr:last-child td { border-bottom: none; }
   .help-key { display: inline-block; background: var(--panel-3); border: 1px solid var(--faint); border-radius: 5px; padding: 2px 9px; font-size: 13px; font-weight: 700; font-family: monospace; color: var(--text); }
+  .help-tutstart { margin-top: 18px; }
+  .help-footer {
+    margin-top: 22px; padding-top: 18px;
+    border-top: 1px solid var(--line);
+    display: flex; justify-content: center;
+  }
+  .help-contact { font-size: 12.5px; color: var(--muted); }
 
   /* ---------- tutorial start button ---------- */
   .wall-actions { margin-top: auto; flex: 0 0 auto; display: flex; flex-direction: column; gap: 10px; padding-top: 16px; }
@@ -715,7 +723,13 @@
             <li>App sucht beim Start automatisch nach Updates</li>
             <li>Bei Update: Windows-Benachrichtigung + Button in ⚙</li>
           </ul>
+
+          <button class="btn-tutstart help-tutstart" id="btnTutStartHelp">▷ Tutorial starten</button>
         </div>
+      </div>
+
+      <div class="help-footer">
+        <div class="help-contact">Ansprechpartner: Jonas Schuba</div>
       </div>
     </div>
   </div>
@@ -774,7 +788,9 @@ function addPaletteItem(wall, label, sublabel) {
   });
   // Klick = an die Timeline anhängen
   c.addEventListener("click", () => {
-    timeline.push({ id: uid++, wall: wall, cues: 1 });
+    const added = { id: uid++, wall: wall, cues: 1 };
+    timeline.push(added);
+    tutLastAddedId = added.id;
     render();
     // zum neu eingefügten Block scrollen
     const blocks = elTimeline.querySelectorAll(".tl-block");
@@ -787,11 +803,16 @@ WALLS.forEach(w => addPaletteItem(w));
 // Sonder-Bausteine (sehen aus wie normale Walls, lösen aber einen festen Companion-Button aus)
 addPaletteItem("ALL20", "ALLE", "Cue 20");
 addPaletteItem("CLEAR", "CLEAR", "Screens");
+addPaletteItem("ESPON", "ESP WALL", "ON");
+addPaletteItem("ESPOFF", "ESP WALL", "OFF");
 
-// Sonder-Bausteine: ein einzelner Trigger statt Wand/Cue-Logik (Seite 65)
+// Sonder-Bausteine: ein einzelner Trigger statt Wand/Cue-Logik
+// "page" optional — fehlt sie, wird COMPANION.page (Seite 65) verwendet
 const SPECIAL = {
-  ALL20: { name: "ALLE",  sub: "Cue 20",  cueText: "Alle → Cue 20",  bank: 23 }, // ALLE CUE 20
-  CLEAR: { name: "CLEAR", sub: "Screens", cueText: "Clear Screens",  bank: 8 },  // CLEAR SCREENS
+  ALL20:  { name: "ALLE",     sub: "Cue 20",  cueText: "Alle → Cue 20",   bank: 23 }, // ALLE CUE 20 (Seite 65)
+  CLEAR:  { name: "CLEAR",    sub: "Screens", cueText: "Clear Screens",   bank: 8 },  // CLEAR SCREENS (Seite 65)
+  ESPON:  { name: "ESP WALL", sub: "ON",      cueText: "ESP Wall ON",     page: 2, bank: 26 }, // WALL ESP ON (Seite 2)
+  ESPOFF: { name: "ESP WALL", sub: "OFF",     cueText: "ESP Wall OFF",    page: 2, bank: 27 }, // WALL ESP OFF (Seite 2)
 };
 function isSpecial(wall) { return Object.prototype.hasOwnProperty.call(SPECIAL, wall); }
 
@@ -850,6 +871,7 @@ function render() {
 
   timeline.forEach((b, bi) => {
     const block = el("div", "tl-block");
+    block.dataset.blockId = b.id;          // Anker, um einen Block wiederzufinden (Tutorial)
     if (bi === activeBlock) block.classList.add("active");
     const isAll = isSpecial(b.wall);
     if (isAll) block.classList.add("tl-block-special");
@@ -857,7 +879,8 @@ function render() {
     const head = el("div", "tl-head");
     const grip = el("span", "tl-grip", "⠿"); grip.title = "Reorder";
     const order = el("span", "tl-order", String(bi + 1));
-    const name = el("span", "tl-name", isAll ? SPECIAL[b.wall].name : b.wall);
+    // bei Sonder-Bausteinen den Zusatz mitschreiben — sonst heißen ESP ON und OFF beide nur "ESP WALL"
+    const name = el("span", "tl-name", isAll ? (SPECIAL[b.wall].name + " " + SPECIAL[b.wall].sub) : b.wall);
     const spacer = el("span", "spacer");
 
     head.append(grip, order, name, spacer);
@@ -869,7 +892,8 @@ function render() {
       // Cues-Stepper
       const cueSet = el("div", "cue-set");
       const lbl = el("span", "cs-label", "Cues");
-      const stepper = el("div", "stepper");
+      // .stepper-cues: stabiler Anker fürs Tutorial (der Start-Cue-Stepper darf nicht getroffen werden)
+      const stepper = el("div", "stepper stepper-cues");
       const minus = el("button", "step-btn", "−");
       const val = el("span", "step-val", String(b.cues));
       const plus = el("button", "step-btn", "+");
@@ -1158,10 +1182,13 @@ elTimeline.addEventListener("drop", e => {
   }
 
   if (newWall) {
-    timeline.splice(insertAt, 0, { id: uid++, wall: newWall, cues: 1 });
+    const added = { id: uid++, wall: newWall, cues: 1 };
+    timeline.splice(insertAt, 0, added);
+    tutLastAddedId = added.id;
     render();
     const blocks = elTimeline.querySelectorAll(".tl-block");
     if (blocks[insertAt]) blocks[insertAt].scrollIntoView({ block: "nearest", behavior: "smooth" });
+    tutOnAction("addwall");   // Drag & Drop zählt genauso wie ein Klick
     return;
   } else if (moveIdx !== "") {
     const from = parseInt(moveIdx);
@@ -1236,19 +1263,20 @@ async function applyTarget(step, prev) {
 
   const banks = [];
   if (isSpecial(step.wall)) {
-    // Sonder-Baustein (ALLE Cue 20 / Clear Screens): ein einziger fester Button-Druck
-    banks.push(SPECIAL[step.wall].bank);
+    // Sonder-Baustein (ALLE Cue 20 / Clear Screens / ESP Wall On-Off): ein einziger fester Button-Druck
+    const sp = SPECIAL[step.wall];
+    banks.push({ page: sp.page || COMPANION.page, bank: sp.bank });
     lastCompanionWall = null;   // danach Wand neu anwählen
   } else {
     const wall = companionWall(step.wall);
     const wallChanged = lastCompanionWall !== wall;
     const c = globalCueNum(step);                           // wandweit durchgezählter Cue
-    if (wallChanged) banks.push(COMPANION.wallBank[wall]);  // Wand wählen, falls gewechselt
+    if (wallChanged) banks.push({ page: COMPANION.page, bank: COMPANION.wallBank[wall] });  // Wand wählen, falls gewechselt
     if (c <= 10) {
-      banks.push(COMPANION.cueBank[c]);                     // absoluter Sprung auf Cue
+      banks.push({ page: COMPANION.page, bank: COMPANION.cueBank[c] });                     // absoluter Sprung auf Cue
     } else {
-      banks.push(COMPANION.cueBank[10]);                    // auf Cue 10 …
-      for (let i = 0; i < c - 10; i++) banks.push(COMPANION.nextBank); // … dann weitersteppen
+      banks.push({ page: COMPANION.page, bank: COMPANION.cueBank[10] });                    // auf Cue 10 …
+      for (let i = 0; i < c - 10; i++) banks.push({ page: COMPANION.page, bank: COMPANION.nextBank }); // … dann weitersteppen
     }
     lastCompanionWall = wall;
   }
@@ -1256,8 +1284,8 @@ async function applyTarget(step, prev) {
   let ok = true;
   let detail = "";
   const ca = connArgs();
-  for (const bank of banks) {
-    const r = await window.wp.press({ ...ca, page: COMPANION.page, bank });
+  for (const b of banks) {
+    const r = await window.wp.press({ ...ca, page: b.page, bank: b.bank });
     ok = ok && r.ok;
     detail = r.ok ? ("HTTP " + r.status) : (r.error || ("HTTP " + r.status));
     await sleep(120);
@@ -1428,7 +1456,13 @@ const TUT_STEPS = [
   },
   {
     action: "cues",
-    target: () => { const s = elTimeline.querySelectorAll(".stepper"); return s[s.length - 1]; },
+    // gezielt der Cues-Stepper des zuletzt hinzugefügten Blocks — der Start-Cue-Stepper
+    // löst kein "cues" aus und würde das Tutorial blockieren
+    target: () => {
+      const blocks = [...elTimeline.querySelectorAll(".tl-block")];
+      const block = blocks.find(n => n.dataset.blockId === String(tutLastAddedId)) || blocks[blocks.length - 1];
+      return block ? block.querySelector(".stepper-cues") : null;
+    },
     side: "left",
     title: "Cue-Anzahl einstellen",
     body: "Jede Wall hat mehrere Cues. Stell mit + / − ein, wie viele du brauchst.",
@@ -1461,12 +1495,32 @@ const TUT_STEPS = [
 ];
 
 let tutIdx = -1;   // -1 = inaktiv
+let tutLastAddedId = null;   // zuletzt in die Timeline gelegter Block (Ziel für Schritt 2)
 const tutActive = () => tutIdx >= 0;
 
 function tutSpotFor(targetEl) {
   const r = targetEl.getBoundingClientRect();
   const pad = 8;
-  return { top: r.top - pad, left: r.left - pad, width: r.width + pad * 2, height: r.height + pad * 2 };
+  let top = r.top - pad, left = r.left - pad, right = r.right + pad, bottom = r.bottom + pad;
+
+  // Auf den sichtbaren Ausschnitt begrenzen: ist der Inhalt größer als sein Container
+  // (z.B. die Wall-Liste), liefert getBoundingClientRect() auch den weggeclippten Teil —
+  // das Highlight lief sonst über Panel und Top-Bar hinaus.
+  for (let p = targetEl.parentElement; p; p = p.parentElement) {
+    const st = getComputedStyle(p);
+    if (!/auto|scroll|hidden/.test(st.overflowY + " " + st.overflowX)) continue;
+    const pr = p.getBoundingClientRect();
+    top = Math.max(top, pr.top);
+    left = Math.max(left, pr.left);
+    bottom = Math.min(bottom, pr.bottom);
+    right = Math.min(right, pr.right);
+  }
+  top = Math.max(top, 0);
+  left = Math.max(left, 0);
+  bottom = Math.min(bottom, window.innerHeight);
+  right = Math.min(right, window.innerWidth);
+
+  return { top, left, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
 }
 
 // misst die echte Tooltip-Größe und wählt die Seite mit Platz, die das Highlight NICHT überdeckt
@@ -1501,6 +1555,12 @@ function tutPlace(spot, preferred) {
 }
 
 function tutShow(idx) {
+  // Schritte ohne vorhandenes Ziel überspringen statt das Tutorial kommentarlos zu beenden
+  // (Sonder-Bausteine wie ALLE/CLEAR/ESP haben z.B. keinen Cue-Stepper)
+  while (idx < TUT_STEPS.length && !TUT_STEPS[idx].target()) idx++;
+  if (idx >= TUT_STEPS.length) { tutClose(); return; }
+  tutIdx = idx;
+
   const step = TUT_STEPS[idx];
   const targetEl = step.target();
   if (!targetEl) { tutClose(); return; }
@@ -1541,6 +1601,7 @@ function tutClose() {
 
 function tutStart() {
   tutIdx = 0;
+  tutLastAddedId = null;
   tutShow(0);
 }
 
@@ -1559,6 +1620,11 @@ function tutOnAction(action) {
 }
 
 document.getElementById("btnTutStart").addEventListener("click", tutStart);
+// aus der Hilfe heraus: erst das Pop-up schließen, sonst verdeckt es das Highlight
+document.getElementById("btnTutStartHelp").addEventListener("click", () => {
+  helpEl.hidden = true;
+  tutStart();
+});
 document.getElementById("tutSkip").addEventListener("click", tutClose);
 // Highlight folgt dem Element bei Fenstergrößen-Änderung
 window.addEventListener("resize", function () { if (tutActive()) tutShow(tutIdx); });
